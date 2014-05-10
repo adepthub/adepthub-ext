@@ -3,7 +3,6 @@ package adept.ext
 import org.scalatest.FunSpec
 import org.scalatest.Matchers
 
-import adept.ext.AttributeDefaults;
 import adept.repository.models._
 import adept.repository.metadata._
 import adept.repository._
@@ -18,8 +17,8 @@ import scala.util.matching.Regex
 
 class VersionRankTest extends FunSpec with Matchers {
   import adept.test.FileUtils._
-import adept.test.ResolverUtils._
-import adept.test.OutputUtils._
+  import adept.test.ResolverUtils._
+  import adept.test.OutputUtils._
 
   describe("Creating binary versions with excludes and use version as binary") {
     val idA = Id("A")
@@ -27,12 +26,13 @@ import adept.test.OutputUtils._
       usingTmpDir { tmpDir =>
         val repoA = new GitRepository(tmpDir, RepositoryName("com.a"))
         repoA.init()
+        println(repoA.dir.getAbsolutePath)
 
         val variantMetadata = VariantMetadata.fromVariant(variant)
         repoA.add(variantMetadata.write(variant.id, repoA))
         repoA.commit("Added: " + variant.id)
 
-        val rankId = RankingMetadata.getXRankId(variant.id, repoA).headOption.value
+        val rankId = RankingMetadata.DefaultRankId
         repoA.add(RankingMetadata(Seq(variantMetadata.hash)).write(variant.id, rankId, repoA))
         repoA.commit("Order: " + variant.id)
 
@@ -74,7 +74,7 @@ import adept.test.OutputUtils._
         repoA.add(variantMetadata.write(variant.id, repoA))
         repoA.commit("Added: " + variant.id)
 
-        val rankId = RankingMetadata.getXRankId(variant.id, repoA).headOption.value
+        val rankId = RankingMetadata.DefaultRankId
         repoA.add(RankingMetadata(Seq(variantMetadata.hash)).write(variant.id, rankId, repoA))
         repoA.commit("Order: " + variant.id)
 
@@ -149,25 +149,25 @@ import adept.test.OutputUtils._
           Set(resolveResultA))
 
         //TODO: fix useBinaryVersionOf
-//        VersionRank.useBinaryVersionOf(idA, repoA, commitA, inRepositories = Set(repoB, repoC)).foreach {
-//          case (repo, file) =>
-//            repo.add(file)
-//            repo.commit("Using binary version for: " + idA.value)
-//        }
-//        val activeBs = RankLogic.getActiveVariants(idB, repoB, repoB.getHead)
-//        activeBs should have size (1)
-//        activeBs.foreach { hash =>
-//          val newVariant = VariantMetadata.read(idB, hash, repoB, repoB.getHead).value
-//          val requirements = newVariant.requirements.find(_.id == idA).value
-//          requirements.constraint(AttributeDefaults.BinaryVersionAttribute).values shouldEqual Set("1.0")
-//        }
-//        val activeCs = RankLogic.getActiveVariants(idC, repoC, repoC.getHead)
-//        activeCs should have size (1)
-//        activeCs.foreach { hash =>
-//          val newVariant = VariantMetadata.read(idC, hash, repoC, repoC.getHead).value
-//          val requirements = newVariant.requirements.find(_.id == idA).value
-//          requirements.constraint(AttributeDefaults.BinaryVersionAttribute).values shouldEqual Set("1.0")
-//        }
+        //        VersionRank.useBinaryVersionOf(idA, repoA, commitA, inRepositories = Set(repoB, repoC)).foreach {
+        //          case (repo, file) =>
+        //            repo.add(file)
+        //            repo.commit("Using binary version for: " + idA.value)
+        //        }
+        //        val activeBs = RankLogic.getActiveVariants(idB, repoB, repoB.getHead)
+        //        activeBs should have size (1)
+        //        activeBs.foreach { hash =>
+        //          val newVariant = VariantMetadata.read(idB, hash, repoB, repoB.getHead).value
+        //          val requirements = newVariant.requirements.find(_.id == idA).value
+        //          requirements.constraint(AttributeDefaults.BinaryVersionAttribute).values shouldEqual Set("1.0")
+        //        }
+        //        val activeCs = RankLogic.getActiveVariants(idC, repoC, repoC.getHead)
+        //        activeCs should have size (1)
+        //        activeCs.foreach { hash =>
+        //          val newVariant = VariantMetadata.read(idC, hash, repoC, repoC.getHead).value
+        //          val requirements = newVariant.requirements.find(_.id == idA).value
+        //          requirements.constraint(AttributeDefaults.BinaryVersionAttribute).values shouldEqual Set("1.0")
+        //        }
       }
     }
   }
@@ -276,7 +276,7 @@ import adept.test.OutputUtils._
   }
 
   describe("When importing variants from something that is version-based, VersionRank") {
-import adept.test.CacheUtils._
+    import adept.test.CacheUtils._
     it("should create resolution results for us") {
       val akkaId = "akka-actor_2.10"
 
@@ -352,7 +352,7 @@ import adept.test.CacheUtils._
           case ((name, id, hash), versionInfo) =>
             val repository = new GitRepository(tmpDir, name)
             val (errors, results) = VersionRank.createResolutionResults(tmpDir, versionInfo)
-            errors should have size(0)
+            errors should have size (0)
             repository.add(ResolutionResultsMetadata(results.toSeq).write(id, hash, repository))
             repository.commit("Added resolution results from version map")
         }
