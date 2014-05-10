@@ -157,7 +157,7 @@ object VersionRank extends Logging {
         Some(VariantMetadata.fromVariant(noBinaryVersionVariant).hash)
       } else None
     }
-    val defaultRankId = RankingMetadata.defaultRankId(id, repository)
+    val defaultRankId = RankingMetadata.DefaultRankId
     val currentDefaultHashes = RankingMetadata.read(id, defaultRankId, repository, commit).toSet[RankingMetadata].flatMap(_.variants)
 
     //- Find binary versions or add new variant with binary versions
@@ -236,7 +236,9 @@ object VersionRank extends Logging {
     if (rankingSize == 0) {
       (defaultAddFiles, defaultRmFiles)
     } else {
-      val rankings = RankingMetadata.getXRankId(id, repository, 1, rankingSize) //overwrites former files, offset with one for NO binary versions
+      val rankings = binaryVersions
+          .map{ case (binaryVersion, variants) => RankId(binaryVersion) } //overwrites former files, offset with one for NO binary versions
+          .toSet
       assert(rankings.size == rankingSize)
       val newRankIds = {
         ((0 to rankings.size) zip rankings.toSeq.map(_.value).sorted).toMap
