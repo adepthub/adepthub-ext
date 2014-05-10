@@ -4,6 +4,10 @@ scalacOptions += "-feature"
 
 scalacOptions += "-deprecation"
 
+incOptions := incOptions.value.withNameHashing(true)
+
+lazy val adeptCore = ProjectRef(file("adept"), "adeptCore") % "test->test;compile->compile"
+
 lazy val adepthubExt = project.in(file("adepthub-ext")).settings( 
   name := "adepthub-ext",
   organization := "com.adepthub",
@@ -11,6 +15,18 @@ lazy val adepthubExt = project.in(file("adepthub-ext")).settings(
   libraryDependencies ++= Seq(
     "org.scala-sbt.ivy"  % "ivy" % "2.4.0-sbt-d6fca11d63402c92e4167cdf2da91a660d043392",
     "org.scalatest" %% "scalatest" % "2.0" % "test")
-).dependsOn(ProjectRef(file("adept"), "adeptCore") % "test->test;compile->compile")
+).dependsOn(adeptCore)
 
-incOptions := incOptions.value.withNameHashing(true)
+lazy val adepthubUI = project.in(file("adepthub-ui")).settings(
+  name := "adepthub-ui",
+  resolvers += "spray repo" at "http://repo.spray.io", //spray
+  resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/", //akka
+  libraryDependencies ++= Seq(
+    "io.spray" % "spray-can" % "1.3.1",
+    "com.typesafe.akka" %% "akka-actor" % "2.3.0",
+    "com.typesafe.akka" %% "akka-slf4j" % "2.3.0" % "runtime",
+    "ch.qos.logback" % "logback-classic" % "1.1.1"
+  )
+).dependsOn(adeptCore)
+
+
