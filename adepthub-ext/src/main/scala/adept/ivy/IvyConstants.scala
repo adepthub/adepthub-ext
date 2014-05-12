@@ -6,7 +6,6 @@ object IvyConstants {
   val IvyNameAttribute = "ivy-name"
   val IvyOrgAttribute = "ivy-organisation"
 
-  val ConfigurationHashAttribute = ConfigurationHelpers.ConfigurationHashAttribute
   val ConfigurationAttribute = ConfigurationHelpers.ConfigurationAttribute
   val ArtifactConfAttribute = ConfigurationHelpers.ArtifactConfAttribute
   val IdConfig = ConfigurationHelpers.IdConfig

@@ -39,27 +39,6 @@ class IvyIntegrationTest extends FunSuite with Matchers {
     ivyModule
   }
 
-  test("Ivy end-to-end: akka-remote & scalatest (w/exclude rules)") {
-    implicit val testDetails = TestDetails("End-to-end (akka-remote & scalatest & excludes)")
-    usingTmpDir { tmpDir =>
-      val ivy = IvyTestUtils.ivy
-      ivy.configure(IvyTestUtils.TypesafeSettings)
-
-      val ivyModule = getDefaultAdeptModule
-      val akkaDep = new DefaultDependencyDescriptor(ivyModule,
-        ModuleRevisionId.newInstance("com.typesafe.akka", "akka-remote_2.10", "2.2.1"), force, changing, transitive)
-      akkaDep.addExcludeRule("compile", new DefaultExcludeRule(new ArtifactId(new ModuleId("com.google.protobuf", "protobuf-java"), "*", "*", "*"), ExactPatternMatcher.INSTANCE, new java.util.HashMap()))
-      akkaDep.addDependencyConfiguration("compile", "default(compile)")
-      ivyModule.addDependency(akkaDep)
-      val scalaTestDep = new DefaultDependencyDescriptor(ivyModule,
-        ModuleRevisionId.newInstance("org.scalatest", "scalatest_2.10", "1.9.1"), force, changing, transitive)
-      scalaTestDep.addDependencyConfiguration("test", "default(compile)")
-      ivyModule.addDependency(scalaTestDep)
-      installScalaWithBinaryVersions(tmpDir, ivy, Set("2.10.0", "2.10.2"), changing = changing)
-      IvyTestUtils.verify(tmpDir, ivy, ivyModule, changing = changing)
-    }
-  }
-
   def installScalaWithBinaryVersions(baseDir: File, ivy: Ivy, versions: Set[String], changing: Boolean)(implicit testDetails: TestDetails) = {
     val ivyModule = getDefaultAdeptModule
 
@@ -86,6 +65,27 @@ class IvyIntegrationTest extends FunSuite with Matchers {
     scalaRepo.add(addFiles)
     scalaRepo.rm(rmFiles)
     scalaRepo.commit("Versioned Scala")
+  }
+
+  test("Ivy end-to-end: akka-remote & scalatest (w/exclude rules)") {
+    implicit val testDetails = TestDetails("End-to-end (akka-remote & scalatest & excludes)")
+    usingTmpDir { tmpDir =>
+      val ivy = IvyTestUtils.ivy
+      ivy.configure(IvyTestUtils.TypesafeSettings)
+
+      val ivyModule = getDefaultAdeptModule
+      val akkaDep = new DefaultDependencyDescriptor(ivyModule,
+        ModuleRevisionId.newInstance("com.typesafe.akka", "akka-remote_2.10", "2.2.1"), force, changing, transitive)
+      akkaDep.addExcludeRule("compile", new DefaultExcludeRule(new ArtifactId(new ModuleId("com.google.protobuf", "protobuf-java"), "*", "*", "*"), ExactPatternMatcher.INSTANCE, new java.util.HashMap()))
+      akkaDep.addDependencyConfiguration("compile", "default(compile)")
+      ivyModule.addDependency(akkaDep)
+      val scalaTestDep = new DefaultDependencyDescriptor(ivyModule,
+        ModuleRevisionId.newInstance("org.scalatest", "scalatest_2.10", "1.9.1"), force, changing, transitive)
+      scalaTestDep.addDependencyConfiguration("test", "default(compile)")
+      ivyModule.addDependency(scalaTestDep)
+      installScalaWithBinaryVersions(tmpDir, ivy, Set("2.10.0", "2.10.2"), changing = changing)
+      IvyTestUtils.verify(tmpDir, ivy, ivyModule, changing = changing)
+    }
   }
 
   test("Ivy end-to-end: scala-compiler 2.10.2 (module with optional deps)") {
@@ -140,7 +140,7 @@ class IvyIntegrationTest extends FunSuite with Matchers {
   //    usingTmpDir { tmpDir =>
   //      val  ivy = IvyUtils.load(ivyLogger = IvyConstants.warnIvyLogger)
   //
-//      ivy.configure(IvyTestUtils.SbtPluginSettings)
+  //      ivy.configure(IvyTestUtils.SbtPluginSettings)
   //      
   //      val ivyConverter = new IvyAdeptConverter(ivy)
   //

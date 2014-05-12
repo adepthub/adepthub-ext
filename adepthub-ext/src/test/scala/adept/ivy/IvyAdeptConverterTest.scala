@@ -155,6 +155,7 @@ class IvyAdeptConverterTest extends FunSuite with Matchers {
 
     val ivyConverter = new IvyAdeptConverter(ivy)
     val ivyModule = getAkka210TestIvyModule
+    
     val (results, _) = benchmark(IvyImport, ivyModule) {
       ivyConverter.loadAsIvyImportResults(ivyModule, progress).failOnLeft
     }
@@ -281,7 +282,6 @@ class IvyAdeptConverterTest extends FunSuite with Matchers {
       repository = RepositoryName("com.typesafe.akka"),
       artifacts = Set.empty, localFiles = Map.empty,
       versionInfo = Set.empty, extendsIds = Set.empty,
-      allConfigIds = Set.empty,
       excludeRules = Map.empty))
 
     val requirements = IvyRequirements.convertIvyAsRequirements(ivyModule, currentFakeIvyResults)
@@ -317,28 +317,27 @@ class IvyAdeptConverterTest extends FunSuite with Matchers {
         Requirement(id, Set(Constraint(BinaryVersionAttribute, Set(binaryVersion))), Set.empty)
     }
     val baseId = org + "/" + name
-    val configurationHash = Hasher.hash((org + name + version).getBytes)
-    val configurationRequirements = Set(Requirement(Id(baseId), Set(Constraint(ConfigurationHashAttribute, Set(configurationHash))), Set.empty))
+    val moduleHash = Hasher.hash((org + name + version).getBytes)
+    val configurationRequirements = Set(Requirement(Id(baseId), Set(Constraint(ModuleHashAttribute, Set(moduleHash))), Set.empty))
     Set(
       IvyImportResult(
         variant = (Variant(
           id = Id(baseId),
           attributes = Set(
-            Attribute(ConfigurationHashAttribute, Set(configurationHash)),
+            Attribute(ModuleHashAttribute, Set(moduleHash)),
             Attribute(IvyNameAttribute, Set(name)),
             Attribute(VersionAttribute, Set(version)),
             Attribute(IvyOrgAttribute, Set(org))))),
         repository = RepositoryName(org),
         artifacts = Set.empty, localFiles = Map.empty,
         versionInfo = Set.empty, extendsIds = Set.empty,
-        allConfigIds = Set.empty,
         excludeRules = Map.empty),
       IvyImportResult(
         variant = (Variant(
           id = withConfiguration(baseId, "default"),
           requirements = configurationRequirements,
           attributes = Set(
-            Attribute(ConfigurationHashAttribute, Set(configurationHash)),
+            Attribute(ModuleHashAttribute, Set(moduleHash)),
             Attribute(ConfigurationAttribute, Set("default")),
             Attribute(IvyNameAttribute, Set(name)),
             Attribute(VersionAttribute, Set(version)),
@@ -346,14 +345,13 @@ class IvyAdeptConverterTest extends FunSuite with Matchers {
         repository = RepositoryName(org),
         artifacts = Set.empty, localFiles = Map.empty,
         versionInfo = Set.empty, extendsIds = Set(baseId, withConfiguration(baseId, "runtime"), withConfiguration(baseId, "master")),
-        allConfigIds = Set.empty,
         excludeRules = Map.empty),
       IvyImportResult(
         variant = (Variant(
           id = withConfiguration(baseId, "compile"),
           requirements = compileRequirements ++ configurationRequirements,
           attributes = Set(
-            Attribute(ConfigurationHashAttribute, Set(configurationHash)),
+            Attribute(ModuleHashAttribute, Set(moduleHash)),
             Attribute(ConfigurationAttribute, Set("compile")),
             Attribute(IvyNameAttribute, Set(name)),
             Attribute(VersionAttribute, Set(version)),
@@ -361,14 +359,13 @@ class IvyAdeptConverterTest extends FunSuite with Matchers {
         repository = RepositoryName(org),
         artifacts = Set.empty, localFiles = Map.empty,
         versionInfo = compileVersionInfo, extendsIds = Set(baseId),
-        allConfigIds = Set.empty,
         excludeRules = Map.empty),
       IvyImportResult(
         variant = (Variant(
           id = withConfiguration(baseId, "runtime"),
           requirements = configurationRequirements,
           attributes = Set(
-            Attribute(ConfigurationHashAttribute, Set(configurationHash)),
+            Attribute(ModuleHashAttribute, Set(moduleHash)),
             Attribute(ConfigurationAttribute, Set("runtime")),
             Attribute(IvyNameAttribute, Set(name)),
             Attribute(VersionAttribute, Set(version)),
@@ -376,14 +373,13 @@ class IvyAdeptConverterTest extends FunSuite with Matchers {
         repository = RepositoryName(org),
         artifacts = Set.empty, localFiles = Map.empty,
         versionInfo = Set.empty, extendsIds = Set(baseId, withConfiguration(baseId, "compile")),
-        allConfigIds = Set.empty,
         excludeRules = Map.empty),
       IvyImportResult(
         variant = (Variant(
           id = withConfiguration(baseId, "test"),
           requirements = configurationRequirements,
           attributes = Set(
-            Attribute(ConfigurationHashAttribute, Set(configurationHash)),
+            Attribute(ModuleHashAttribute, Set(moduleHash)),
             Attribute(ConfigurationAttribute, Set("master")),
             Attribute(IvyNameAttribute, Set(name)),
             Attribute(VersionAttribute, Set(version)),
@@ -391,14 +387,13 @@ class IvyAdeptConverterTest extends FunSuite with Matchers {
         repository = RepositoryName(org),
         artifacts = Set.empty, localFiles = Map.empty,
         versionInfo = Set.empty, extendsIds = Set(baseId, withConfiguration(baseId, "runtime")),
-        allConfigIds = Set.empty,
         excludeRules = Map.empty),
       IvyImportResult(
         variant = (Variant(
           id = withConfiguration(baseId, "master"),
           requirements = configurationRequirements,
           attributes = Set(
-            Attribute(ConfigurationHashAttribute, Set(configurationHash)),
+            Attribute(ModuleHashAttribute, Set(moduleHash)),
             Attribute(ConfigurationAttribute, Set("master")),
             Attribute(IvyNameAttribute, Set(name)),
             Attribute(VersionAttribute, Set(version)),
@@ -406,7 +401,6 @@ class IvyAdeptConverterTest extends FunSuite with Matchers {
         repository = RepositoryName(org),
         artifacts = Set.empty, localFiles = Map.empty,
         versionInfo = Set.empty, extendsIds = Set(baseId),
-        allConfigIds = Set.empty,
         excludeRules = Map.empty))
   }
 

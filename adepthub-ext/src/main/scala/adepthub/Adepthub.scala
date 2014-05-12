@@ -16,21 +16,57 @@ import adept.repository.models.RepositoryName
 import adept.repository.models.Commit
 import adept.resolution.resolver.models.ResolveResult
 import adept.repository.models.RepositoryLocations
+import scala.concurrent.ExecutionContext
+import adept.repository.Repository
+import adept.repository.GitRepository
+import adept.repository.metadata.VariantMetadata
+import org.apache.ivy.Ivy
 
-case class SearchResults(variant: Variant, repository: RepositoryName, commit: Commit, locations: RepositoryLocations, isOffline: Boolean)
+case class SearchResult(variant: Variant, repository: RepositoryName, commit: Commit, locations: RepositoryLocations, isOffline: Boolean)
 case class RepositoryInfo(repository: RepositoryName, commit: Commit, locations: RepositoryLocations)
 
-class Adepthub(baseDir: File, url: String, onlyOnline: Boolean = false, progress: ProgressMonitor = new TextProgressMonitor) extends Logging { //TODO: make logging configurable
-  def onlineSearch(term: String): Future[SearchResults] = {
+trait AdeptIvy {
+
+  def ivyInstall(ivy: Ivy, org: String, name: String, revision: String) = {
+
+  }
+}
+
+class Adepthub(baseDir: File, url: String, passphrase: Option[String] = None, onlyOnline: Boolean = false, progress: ProgressMonitor = new TextProgressMonitor) extends Logging with AdeptIvy { //TODO: make logging configurable
+  private def matches(term: String, id: Id) = {
+    id.value.contains(term)
+  }
+
+  def onlineSearch(term: String): Future[Set[SearchResult]] = {
     ???
   }
 
-  def offlineSearch(term: String): SearchResults = {
-    ???
+  def offlineSearch(term: String): Set[SearchResult] = {
+    Repository.listRepositories(baseDir).flatMap { name =>
+      val repository = new GitRepository(baseDir, name)
+      val commit = repository.getHead
+      VariantMetadata.listIds(repository, commit).flatMap { id =>
+        if (matches(term, id)) {
+          val locations: RepositoryLocations = repository.getRemoteUri(GitRepository.DefaultRemote).map { location =>
+            RepositoryLocations(repository.name, Set(location))
+          }.getOrElse(RepositoryLocations(repository.name, Set.empty))
+
+          val variants = VariantMetadata.listVariants(id, repository, commit).flatMap { hash =>
+            VariantMetadata.read(id, hash, repository, commit).map(_.toVariant(id))
+          }
+          variants.map { variant =>
+            SearchResult(variant, repository.name, commit, locations, isOffline = true)
+          }
+        } else {
+          Set.empty[SearchResult]
+        }
+      }
+    }
   }
 
-  def mergeSearchResults(offline: SearchResults, online: Future[SearchResults], onlineTimeout: FiniteDuration): SearchResults = {
-    ???
+  def mergeSearchResults(offline: Set[SearchResult], online: Future[Set[SearchResult]], onlineTimeout: FiniteDuration): Set[SearchResult] = {
+    logger.warn("online search not... online yet .... ")
+    offline
   }
 
   val defaultTimeout = {
@@ -39,30 +75,47 @@ class Adepthub(baseDir: File, url: String, onlyOnline: Boolean = false, progress
   }
 
   val defaultExecutionContext = {
-    scala.concurrent.ExecutionContext.global //TODO: change to something else
+    scala.concurrent.ExecutionContext.global //TODO: we should probably have multiple different execution contexts for IO/disk/CPU bound operations
   }
 
-  def search(term: String, onlineTimeout: FiniteDuration = defaultTimeout): SearchResults = {
+  def search(term: String, onlineTimeout: FiniteDuration = defaultTimeout): Set[SearchResult] = {
     mergeSearchResults(offline = offlineSearch(term), online = onlineSearch(term), onlineTimeout = onlineTimeout)
   }
 
-  def offlineResolve(requirements: Set[Requirement], variants: Set[Variant], repositories: Set[RepositoryInfo]): Future[ResolveResult] = {
+  def offlineResolve(requirements: Set[Requirement], variants: Set[Variant], repositories: Set[RepositoryInfo]): Future[Either[String, ResolveResult]] = {
     ???
   }
 
-  def onlineResolve(requirements: Set[Requirement], variants: Set[Variant], repositories: Set[RepositoryInfo]): Future[ResolveResult] = {
+  def onlineResolve(requirements: Set[Requirement], variants: Set[Variant], repositories: Set[RepositoryInfo]): Future[Either[String, ResolveResult]] = {
     ???
   }
 
   def canOfflineResolve(repositories: Set[RepositoryInfo]): Boolean = {
+    repositories.forall { repositoryInfo =>
+      val repository = new GitRepository(baseDir, repositoryInfo.repository)
+      repository.exists && repository.hasCommit(repositoryInfo.commit)
+    }
+  }
+
+  def updateOffline(repositories: Set[RepositoryInfo])(executionContext: ExecutionContext): Future[Either[Set[RepositoryInfo], Set[RepositoryInfo]]] = {
+    val updates = repositories.flatMap { repositoryInfo =>
+      val repository = new GitRepository(baseDir, repositoryInfo.repository)
+      repositoryInfo.locations.uris.map { uri =>
+        repository.addRemoteUri(GitRepository.DefaultRemote, uri)
+        Future {
+          if (repository.hasCommit(repositoryInfo.commit)) {
+            repositoryInfo
+          } else {
+            repositoryInfo.copy(commit = repository.pull(passphrase, progress = ???))
+          }
+        }(defaultExecutionContext)
+      }
+
+    }
     ???
   }
 
-  def updateOffline(repositories: Set[RepositoryInfo]): Either[Set[RepositoryInfo], Set[RepositoryInfo]] = {
-    ???
-  }
-
-  def formatUpdateError(failedRepositories: Set[RepositoryInfo]): Either[String, _] = {
+  def formatUpdateError(failedRepositories: Set[RepositoryInfo]): Either[String, ResolveResult] = {
     ???
   }
 
@@ -72,27 +125,24 @@ class Adepthub(baseDir: File, url: String, onlyOnline: Boolean = false, progress
     } else if (onlyOnline) { //or use only online if specified
       val onlineResults = onlineResolve(requirements, variants, repositories)
       onlineResults.onSuccess {
-        case results =>
+        case Right(results) =>
           if (results.isResolved) {
-            updateOffline(repositories)
+            updateOffline(repositories)(defaultExecutionContext)
           }
       }(defaultExecutionContext)
       onlineResults
-    } else { //if not, try offline update & resolve, while hitting online and get the fastest one
+    } else { //if not, try offline update & resolve and hitting online then get the one that finishes first
       val onlineResults = onlineResolve(requirements, variants, repositories)
-      val offlineResults = blocking {
-        Future {
-          updateOffline(repositories) match {
-            case Right(_) =>
-              offlineResolve(requirements, variants, repositories)
-            case Left(error) => formatUpdateError(error)
-          }
-        }(defaultExecutionContext)
-      }
+      val offlineRepositories = updateOffline(repositories)(defaultExecutionContext)
+      val offlineResults = offlineRepositories.flatMap {
+        case Right(_) => offlineResolve(requirements, variants, repositories)
+        case Left(error) => Future { formatUpdateError(error) }(defaultExecutionContext)
+      }(defaultExecutionContext)
       Future.find(Set(onlineResults, offlineResults)) { result =>
         ???
       }(defaultExecutionContext)
       ???
     }
   }
+
 }

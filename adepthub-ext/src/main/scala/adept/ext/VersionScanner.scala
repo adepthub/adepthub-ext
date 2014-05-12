@@ -4,8 +4,9 @@ import adept.resolution.models._
 import adept.repository.models._
 import adept.repository._
 import adept.repository.metadata._
+import adept.logging.Logging
 
-object VersionScanner {
+object VersionScanner extends Logging {
   def findVersion(id: Id, version: Version, repository: GitRepository, commit: Commit): Option[VariantHash] = {
     val rankIds = RankingMetadata.listRankIds(id, repository, commit)
     val foundHashes = rankIds.flatMap { rankId =>
@@ -19,6 +20,10 @@ object VersionScanner {
           } yield {
             metadata.hash
           }
+          if (maybeHash.isEmpty) {
+            logger.warn("Could not find version for id: "  + (id: Id, version: Version)   + " with " + hash + " in " + rankId + " of " + repository.name + " commit: " + commit) 
+          }
+          
           maybeHash.isDefined
         }.map(hash => rankId -> hash)
       }

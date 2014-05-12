@@ -36,9 +36,12 @@ import java.io.File
 import scala.xml.XML
 import adept.artifact.ArtifactCache
 import adept.artifact.models.ArtifactLocation
+import adept.ext.models.Module
+import adept.repository.models.VariantHash
+import adept.repository.metadata.VariantMetadata
 
 class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[String] = Set("optional"), skippableConf: Option[Set[String]] = Some(Set("javadoc", "sources"))) extends Logging {
-  import adept.ext.AttributeDefaults.VersionAttribute
+  import adept.ext.AttributeDefaults.{ ModuleHashAttribute, VersionAttribute }
   import IvyUtils._
   import IvyConstants._
   import collection.JavaConverters._
@@ -361,7 +364,7 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
 
   private def createIvyResult(currentIvyNode: IvyNode): Either[Set[IvyImportError], Set[IvyImportResult]] = {
     import collection.JavaConverters._
-    
+
     var errors = Set.empty[IvyImportError]
 
     val mrid = currentIvyNode.getId
@@ -370,7 +373,6 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
     val nameAttribute = Attribute(IvyNameAttribute, Set(mrid.getName()))
     val orgAttribute = Attribute(IvyOrgAttribute, Set(mrid.getOrganisation()))
 
-    val configurationHash = Hasher.hash(mrid.toString.getBytes) //TODO: make more unique? 
     val attributes = Set(orgAttribute, nameAttribute, versionAttribute)
 
     val dependencyReport = ivy.resolve(mrid, resolveOptions(), changing)
@@ -432,7 +434,7 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
 
         val configurationRequirements = (ivyConfiguration.getExtends().map { targetConf =>
           Requirement(ivyIdAsId(mrid.getModuleId, targetConf), Set.empty, Set.empty)
-        }.toSet) + Requirement(ivyIdAsId(mrid.getModuleId), Set(Constraint(ConfigurationHashAttribute, Set(configurationHash))), Set.empty)
+        }.toSet)
 
         val extendsIds = ivyConfiguration.getExtends().map { targetConf =>
           ivyIdAsId(mrid.getModuleId, targetConf)
@@ -444,7 +446,7 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
 
         val variant = Variant(
           id = thisVariantId,
-          attributes = attributes + Attribute(ConfigurationHashAttribute, Set(configurationHash)) + Attribute(ConfigurationAttribute, Set(confName)),
+          attributes = attributes + Attribute(ConfigurationAttribute, Set(confName)),
           artifacts = artifactRefs,
           requirements = (requirements ++ configurationRequirements).filter(r => !thisAdeptExcludedConfigurationIds(r.id))) //remove the requirements we are excluding from Adept (could be optional for example)
 
@@ -456,22 +458,28 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
           repository = ivyIdAsRepositoryName(mrid.getModuleId),
           versionInfo = targetVersionInfo,
           excludeRules = excludeRules,
-          extendsIds = extendsIds,
-          allConfigIds = allConfigIds)
+          extendsIds = extendsIds)
       }.toSet
 
     if (errors.nonEmpty) Left(errors)
-    else Right(
-      mergableResults +
+    else {
+      val allResults = mergableResults +
         IvyImportResult( //<-- adding main configuration to make sure that there is not 2 variants with different "configurations" 
-          variant = Variant(id, attributes = attributes + Attribute(ConfigurationHashAttribute, Set(configurationHash))),
+          variant = Variant(id, attributes = attributes),
           artifacts = Set.empty,
           localFiles = Map.empty,
           repository = ivyIdAsRepositoryName(mrid.getModuleId),
           versionInfo = Set.empty,
           excludeRules = Map.empty,
-          extendsIds = Set.empty,
-          allConfigIds = allConfigIds))
+          extendsIds = Set.empty)
+
+      val allVariants = allResults.map(_.variant)
+      val modulurisedVariants: Map[VariantHash, Variant] = Module.modularise(id, allVariants)
+      val modulurisedResults = allResults.map { result =>
+        result.copy(variant = modulurisedVariants(VariantMetadata.fromVariant(result.variant).hash))
+      }
+      Right(modulurisedResults)
+    }
   }
 
   private def flattenConfigDependencyTree(tree: Map[String, Map[ModuleRevisionId, Set[IvyNode]]]): Map[ModuleRevisionId, Set[IvyNode]] = {

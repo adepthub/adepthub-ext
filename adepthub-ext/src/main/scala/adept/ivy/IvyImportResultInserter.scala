@@ -4,6 +4,7 @@ import org.apache.ivy.core.resolve.IvyNode
 import org.apache.ivy.core.module.descriptor.DependencyDescriptor
 import org.eclipse.jgit.lib.ProgressMonitor
 import adept.ext._
+import adept.ext.models.Module
 import adept.repository.GitRepository
 import adept.repository.metadata._
 import adept.repository.models._
@@ -97,6 +98,11 @@ object IvyImportResultInserter extends Logging {
     }
     progress.endTask()
 
+    //group by modules
+    val modules = results.groupBy { result =>
+      Module.getModuleHash(result.variant)
+    }
+
     progress.beginTask("Checking for new imports", included.size * 2)
     val previousResolutionResults = included.flatMap { result =>
       progress.update(1)
@@ -148,27 +154,28 @@ object IvyImportResultInserter extends Logging {
           val includedVersionInfo = result.versionInfo //ivy will exclude what should be excluded anyways so we can just use it directly here
           val commit = repository.getHead
 
-          println(id + " extends " + result.extendsIds)
-          val extendsResults = result.extendsIds.flatMap { extendsId =>
-            val configAttribute = variantMetadata.attributes.find(_.name == IvyConstants.ConfigurationHashAttribute).getOrElse(throw new Exception("Cannot find " + IvyConstants.ConfigurationHashAttribute + " on " + variantMetadata)) //fail if it is not here
-
-            var found = RankingMetadata.listRankIds(extendsId, repository, commit).flatMap { rankId =>
-              val firstInCurrentRanking = RankingMetadata.read(extendsId, rankId, repository, commit).flatMap {
-                _.variants.find { hash => //find first hash...
-                  VariantMetadata.read(extendsId, hash, repository, commit).exists(_.attributes.contains(configAttribute)) //...that has this config attribute 
-                }
-              }
-              firstInCurrentRanking.map(_ -> rankId) //rankId used for debug
-            }
-
-            if (found.size == 1) {
-              val (hash, _) = found.head
-              Some(ResolutionResult(extendsId, repository.name, commit, hash))
-            } else {
-
-              throw new Exception("Could not find EXACTLY one configuration hash: " + configAttribute + " for " + extendsId + " a configuration extended by: " + id + " in " + repository.name + " for " + commit + ". Found: " + found)
-            }
-          }
+          //        TODO: remove:          
+          //          println(id + " extends " + result.extendsIds)
+          //          val extendsResults = result.extendsIds.flatMap { extendsId =>
+          //            val configAttribute = variantMetadata.attributes.find(_.name == IvyConstants.ConfigurationHashAttribute).getOrElse(throw new Exception("Cannot find " + IvyConstants.ConfigurationHashAttribute + " on " + variantMetadata)) //fail if it is not here
+          //
+          //            var found = RankingMetadata.listRankIds(extendsId, repository, commit).flatMap { rankId =>
+          //              val firstInCurrentRanking = RankingMetadata.read(extendsId, rankId, repository, commit).flatMap {
+          //                _.variants.find { hash => //find first hash...
+          //                  VariantMetadata.read(extendsId, hash, repository, commit).exists(_.attributes.contains(configAttribute)) //...that has this config attribute 
+          //                }
+          //              }
+          //              firstInCurrentRanking.map(_ -> rankId) //rankId used for debug
+          //            }
+          //
+          //            if (found.size == 1) {
+          //              val (hash, _) = found.head
+          //              Some(ResolutionResult(extendsId, repository.name, commit, hash))
+          //            } else {
+          //
+          //              throw new Exception("Could not find EXACTLY one configuration hash: " + configAttribute + " for " + extendsId + " a configuration extended by: " + id + " in " + repository.name + " for " + commit + ". Found: " + found)
+          //            }
+          //          }
 
           val (foundVersionErrors, allFoundVersionResults) = VersionRank.createResolutionResults(baseDir, includedVersionInfo)
 
@@ -182,8 +189,35 @@ object IvyImportResultInserter extends Logging {
               Set.empty[ResolutionResult]
           }
 
+          val thisModuleResults: Set[ResolutionResult] = {
+            val currentModuleHash = Module.getModuleHash(variant)
+            val ivyResults = modules(currentModuleHash)
+            ivyResults.map { ivyResult =>
+              val ivyResultRepository = repository.name
+              //verify that we are in the same repository (commits won't work if not)
+              if (ivyResultRepository != repository.name) throw new Exception("IvyResult for: " + ivyResult.variant + " does not have same repository as module variant:" + variant + ": " + repository.name)
+              val ivyResultCommit = commit
+              val ivyResultId = ivyResult.variant.id
+
+              val ivyResultHash = {
+                //TODO: we must scan because we change the variants (adding exclusions). Instead of doing this we could have a map of hashes which means the same thing
+                val candidates = VariantMetadata.listVariants(ivyResultId, repository, ivyResultCommit).flatMap { hash =>
+                  VariantMetadata.read(ivyResultId, hash, repository, ivyResultCommit).filter { metadata =>
+                    Module.getModuleHash(metadata.toVariant(ivyResultId)) == currentModuleHash
+                  }.map(hash -> _)
+                }
+                if (candidates.size == 1) {
+                  val (hash, selectedCandidate) = candidates.head
+                  hash
+                } else throw new Exception("Did not find exactly one candidate with module hash: " + currentModuleHash + " in " + (ivyResultId, repository, ivyResultCommit) + ":\n" + candidates.mkString("\n"))
+              }
+
+              ResolutionResult(ivyResultId, ivyResultRepository, ivyResultCommit, ivyResultHash)
+            }
+          }
+
           val currentResults = allFoundVersionResults ++
-            extendsResults
+            thisModuleResults
 
           val resolutionResultsMetadata = ResolutionResultsMetadata(currentResults.toSeq)
           repository.add(resolutionResultsMetadata.write(id, variantMetadata.hash, repository))

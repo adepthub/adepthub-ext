@@ -24,9 +24,9 @@ object IvyTestUtils {
 
   val TypesafeSettings = new File("adepthub-ext/src/test/resources/typesafe-ivy-settings.xml")
   val SbtPluginSettings = new File("adepthub-ext/src/test/resources/sbt-plugin-ivy-settings.xml")
-  
+
   def ivy = this.synchronized { //avoid parallel test messing up Ivy imports
-    IvyUtils.load( ivyLogger = IvyConstants.warnIvyLogger )
+    IvyUtils.load(ivyLogger = IvyConstants.warnIvyLogger)
   }
 
   def verify(tmpDir: File, ivy: Ivy, ivyModule: ModuleDescriptor, changing: Boolean)(implicit testDetails: TestDetails) = {
@@ -60,7 +60,8 @@ object IvyTestUtils {
     for (confName <- requirements.keys) {
       val (errors, resolutionResults) =
         VersionRank.createResolutionResults(tmpDir, configuredVersionInfo(confName))
-      errors should have size(0)
+      if (errors.nonEmpty) println(errors.mkString("\n")) //print to see errors on failure
+      errors should have size (0)
       val loader = benchmark(Loaded, resolutionResults) {
         new GitLoader(tmpDir, resolutionResults, progress, cacheManager)
       }

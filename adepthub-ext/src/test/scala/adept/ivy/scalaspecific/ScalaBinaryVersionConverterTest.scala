@@ -27,7 +27,6 @@ class ScalaBinaryVersionConverterTest extends FunSuite with Matchers {
       localFiles = Map.empty,
       artifacts = Set.empty,
       extendsIds = Set.empty,
-      allConfigIds = Set.empty,
       excludeRules = Map.empty))
 
     result.variant.id shouldEqual Id("test/thing")
@@ -46,7 +45,6 @@ class ScalaBinaryVersionConverterTest extends FunSuite with Matchers {
       localFiles = Map.empty,
       artifacts = Set.empty,
       extendsIds = Set.empty,
-      allConfigIds = Set.empty,
       excludeRules = Map.empty))
 
     result.variant.id shouldEqual Id("test/thing/config/compile")

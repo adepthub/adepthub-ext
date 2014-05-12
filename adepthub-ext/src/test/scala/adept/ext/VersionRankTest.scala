@@ -263,6 +263,7 @@ class VersionRankTest extends FunSpec with Matchers {
         RankLogic.getActiveVariants(id, repository, commit5) shouldEqual Set(VariantMetadata.fromVariant(variant112).hash, VariantMetadata.fromVariant(variant102).hash)
 
         repository.add(VariantMetadata.fromVariant(variant200).write(id, repository))
+
         val commit6 = repository.commit("Re-added something we removed")
         val (addFiles3, rmFiles3) = VersionRank.useSemanticVersionRanking(id, repository, commit6)
         repository.add(addFiles3)
@@ -271,7 +272,19 @@ class VersionRankTest extends FunSpec with Matchers {
         val commit7 = repository.commit("Adept: Now with more order!")
 
         RankLogic.getActiveVariants(id, repository, commit7) shouldEqual Set(VariantMetadata.fromVariant(variant112).hash, VariantMetadata.fromVariant(variant102).hash, VariantMetadata.fromVariant(variant200).hash)
+
+        //Verify that rank id path detection works well:   TODO: move this to separate test!
+        val variant200Master = Variant(Id("A/config/master"), Set(version -> Set("2.0.1"), binaryVersion -> Set("2.0")))
+        repository.add(VariantMetadata.fromVariant(variant200Master).write(variant200Master.id, repository))
+        val commit8 = repository.commit("And with a master!")
+        val (addFiles4, rmFiles4) = VersionRank.useSemanticVersionRanking(variant200Master.id, repository, commit8)
+        repository.add(addFiles4)
+        repository.rm(rmFiles4)
+        val commit9 = repository.commit("And some order")
+        RankLogic.getActiveVariants(variant200Master.id, repository, commit9) shouldEqual Set(VariantMetadata.fromVariant(variant200Master).hash)
+        println(VersionScanner.findVersion(variant200Master.id, Version("2.0.1"), repository, commit9))
       }
+
     }
   }
 

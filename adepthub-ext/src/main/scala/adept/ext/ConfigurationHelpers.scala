@@ -7,7 +7,6 @@ import adept.resolution.Resolver
 import adept.resolution.resolver.models.ResolveResult
 
 object ConfigurationHelpers {
-  val ConfigurationHashAttribute = "configuration-hash"
   val ConfigurationAttribute = "configuration"
   val ArtifactConfAttribute = "configurations"
   val IdConfig = "config"
