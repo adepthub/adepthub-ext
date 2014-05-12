@@ -29,6 +29,11 @@ private[adept] object IvyUtils extends Logging {
   import IvyConstants._
   import collection.JavaConverters._
 
+  lazy val errorIvyLogger = new AdeptIvyMessageLogger(Message.MSG_ERR)
+  lazy val warnIvyLogger = new AdeptIvyMessageLogger(Message.MSG_WARN)
+  lazy val infoIvyLogger = new AdeptIvyMessageLogger(Message.MSG_INFO)
+  lazy val debugIvyLogger = new AdeptIvyMessageLogger(Message.MSG_DEBUG)
+  
   /** As in sbt */
   private[ivy] def cleanModule(mrid: ModuleRevisionId, resolveId: String, manager: ResolutionCacheManager) {
     val files =

@@ -26,7 +26,7 @@ object IvyTestUtils {
   val SbtPluginSettings = new File("adepthub-ext/src/test/resources/sbt-plugin-ivy-settings.xml")
 
   def ivy = this.synchronized { //avoid parallel test messing up Ivy imports
-    IvyUtils.load(ivyLogger = IvyConstants.warnIvyLogger)
+    IvyUtils.load(ivyLogger = IvyUtils.warnIvyLogger)
   }
 
   def verify(tmpDir: File, ivy: Ivy, ivyModule: ModuleDescriptor, changing: Boolean)(implicit testDetails: TestDetails) = {

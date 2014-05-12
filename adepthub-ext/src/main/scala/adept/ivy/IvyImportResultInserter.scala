@@ -200,7 +200,7 @@ object IvyImportResultInserter extends Logging {
               val ivyResultId = ivyResult.variant.id
 
               val ivyResultHash = {
-                //TODO: we must scan because we change the variants (adding exclusions). Instead of doing this we could have a map of hashes which means the same thing
+                //TODO: we must scan because we change the variants (adding exclusions). Instead of doing this we could have a map of hashes which means the same thing (hash1 == hash2)
                 val candidates = VariantMetadata.listVariants(ivyResultId, repository, ivyResultCommit).flatMap { hash =>
                   VariantMetadata.read(ivyResultId, hash, repository, ivyResultCommit).filter { metadata =>
                     Module.getModuleHash(metadata.toVariant(ivyResultId)) == currentModuleHash

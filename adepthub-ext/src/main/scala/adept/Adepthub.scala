@@ -1,4 +1,4 @@
-package adepthub
+package adept
 
 import java.io.File
 import adept.progress.ProgressMonitor
@@ -20,15 +20,18 @@ import scala.concurrent.ExecutionContext
 import adept.repository.Repository
 import adept.repository.GitRepository
 import adept.repository.metadata.VariantMetadata
+import adept.ivy.IvyUtils
+import adept.ivy.IvyConstants
 import org.apache.ivy.Ivy
 
 case class SearchResult(variant: Variant, repository: RepositoryName, commit: Commit, locations: RepositoryLocations, isOffline: Boolean)
 case class RepositoryInfo(repository: RepositoryName, commit: Commit, locations: RepositoryLocations)
 
-trait AdeptIvy {
+private[adept] trait AdeptIvy {
+  def defaultIvy = IvyUtils.load(ivyLogger = IvyUtils.warnIvyLogger)
 
-  def ivyInstall(ivy: Ivy, org: String, name: String, revision: String) = {
-
+  def ivyInstall(ivy: Ivy, org: String, name: String, revision: String, useScalaConvert: Boolean = true) = {
+    
   }
 }
 
@@ -83,6 +86,7 @@ class Adepthub(baseDir: File, url: String, passphrase: Option[String] = None, on
   }
 
   def offlineResolve(requirements: Set[Requirement], variants: Set[Variant], repositories: Set[RepositoryInfo]): Future[Either[String, ResolveResult]] = {
+    
     ???
   }
 
