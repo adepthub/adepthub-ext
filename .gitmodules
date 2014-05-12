@@ -1,3 +1,4 @@
 [submodule "adept"]
 	path = adept
-	url = ./adept
+	url = git@github.com:adept-dm/adept.git
+
