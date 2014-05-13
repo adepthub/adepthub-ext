@@ -1,41 +1,104 @@
 package adept
 
 import java.io.File
-import adept.progress.ProgressMonitor
 import org.slf4j.Logger
-import adept.progress.TextProgressMonitor
 import org.slf4j.LoggerFactory
 import adept.logging.Logging
 import scala.concurrent.Future
 import adept.resolution.models.Id
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.blocking
+import adept.resolution.Resolver
+import adept.resolution.models.Attribute
+import adept.resolution.models.Constraint
 import adept.resolution.models.Variant
 import adept.resolution.models.Requirement
+import adept.repository.AttributeConstraintFilter
 import adept.repository.models.RepositoryName
 import adept.repository.models.Commit
+import adept.repository.models.VariantHash
 import adept.resolution.resolver.models.ResolveResult
 import adept.repository.models.RepositoryLocations
+import adept.repository.models.ResolutionResult
 import scala.concurrent.ExecutionContext
 import adept.repository.Repository
 import adept.repository.GitRepository
 import adept.repository.metadata.VariantMetadata
+import adept.repository.metadata.RankingMetadata
 import adept.ivy.IvyUtils
 import adept.ivy.IvyConstants
+import adept.ivy.IvyAdeptConverter
+import adept.ivy.IvyImportResultInserter
+import adept.ivy.IvyRequirements
+import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
 import org.apache.ivy.Ivy
+import org.eclipse.jgit.lib.{ ProgressMonitor, TextProgressMonitor }
+import adept.lockfile.{ InternalLockfileWrapper, Lockfile }
+import adept.ext.AttributeDefaults
+import adept.repository.GitLoader
+import net.sf.ehcache.CacheManager
 
 case class SearchResult(variant: Variant, repository: RepositoryName, commit: Commit, locations: RepositoryLocations, isOffline: Boolean)
-case class RepositoryInfo(repository: RepositoryName, commit: Commit, locations: RepositoryLocations)
+case class VariantInfo(id: Id, hash: VariantHash, repository: RepositoryName, commit: Commit, locations: RepositoryLocations)
 
-private[adept] trait AdeptIvy {
-  def defaultIvy = IvyUtils.load(ivyLogger = IvyUtils.warnIvyLogger)
+case class ResolveErrorReport(message: String, result: ResolveResult)
 
-  def ivyInstall(ivy: Ivy, org: String, name: String, revision: String, useScalaConvert: Boolean = true) = {
-    
+package object Implicits {
+  implicit class RichVariant(variant: Variant) {
+    def hash = VariantMetadata.fromVariant(variant).hash
   }
 }
 
-class Adepthub(baseDir: File, url: String, passphrase: Option[String] = None, onlyOnline: Boolean = false, progress: ProgressMonitor = new TextProgressMonitor) extends Logging with AdeptIvy { //TODO: make logging configurable
+object Main extends App { //TODO: remove
+  val baseDir = new File(System.getProperty("user.home") + "/.adept")
+  val cacheManager = CacheManager.create()
+  val adepthub = new Adepthub(baseDir, "http://localhost:9000", cacheManager)
+  //  adepthub.ivyInstall("com.typesafe.akka", "akka-actor_2.10", "2.2.2", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
+  val repository = new GitRepository(baseDir, RepositoryName("com.typesafe.akka"))
+  val searchResults = adepthub.search("akka-actor", Set(Constraint(AttributeDefaults.VersionAttribute, Set("2.2.1"))))
+  val forced = searchResults.map { searchResult =>
+    val hash = VariantMetadata.fromVariant(searchResult.variant).hash
+    ResolutionResult(searchResult.variant.id, searchResult.repository, searchResult.commit, hash)
+  }
+  println(adepthub.offlineResolve(
+    Set(
+      (repository.name, Requirement(Id("com.typesafe.akka/akka-actor/config/compile"), Set.empty, Set.empty), repository.getHead),
+      (repository.name, Requirement(Id("com.typesafe.akka/akka-actor/config/master"), Set.empty, Set.empty), repository.getHead)),
+    forced = forced))
+  cacheManager.shutdown()
+}
+
+class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphrase: Option[String] = None, onlyOnline: Boolean = false, progress: ProgressMonitor = new TextProgressMonitor) extends Logging { //TODO: make logging configurable
+  def defaultIvy = IvyUtils.load(ivyLogger = IvyUtils.warnIvyLogger)
+
+  def ivyInstall(org: String, name: String, revision: String, configurations: Set[String], lockfile: Lockfile, ivy: Ivy = defaultIvy, useScalaConvert: Boolean = true) = {
+    val ivyAdeptConverter = new IvyAdeptConverter(ivy)
+    ivyAdeptConverter.ivyImport(org, name, revision, progress) match {
+      case Right(ivyResults) =>
+        val convertedIvyResults = if (useScalaConvert) {
+          ivyResults.map { ivyImportResult =>
+            ScalaBinaryVersionConverter.convertResultWithScalaBinaryVersion(ivyImportResult)
+          }
+        } else ivyResults
+
+        val resolutionResults = IvyImportResultInserter.insertAsResolutionResults(baseDir, convertedIvyResults, progress)
+        val installVariants = {
+          ivyResults.filter { ivyResult =>
+            val variant = ivyResult.variant
+            variant.attribute(IvyConstants.IvyOrgAttribute).values == Set(org) &&
+              variant.attribute(IvyConstants.IvyNameAttribute).values == Set(name) &&
+              variant.attribute(AttributeDefaults.VersionAttribute).values == Set(revision)
+          }.map { ivyResult =>
+            ivyResult.variant
+          }
+        }
+
+        //offlineResolve(requirements, variants, repositories)
+        Right()
+      case Left(errors) => Left(errors)
+    }
+  }
+
   private def matches(term: String, id: Id) = {
     id.value.contains(term)
   }
@@ -44,7 +107,7 @@ class Adepthub(baseDir: File, url: String, passphrase: Option[String] = None, on
     ???
   }
 
-  def offlineSearch(term: String): Set[SearchResult] = {
+  def offlineSearch(term: String, constraints: Set[Constraint] = Set.empty): Set[SearchResult] = {
     Repository.listRepositories(baseDir).flatMap { name =>
       val repository = new GitRepository(baseDir, name)
       val commit = repository.getHead
@@ -54,9 +117,17 @@ class Adepthub(baseDir: File, url: String, passphrase: Option[String] = None, on
             RepositoryLocations(repository.name, Set(location))
           }.getOrElse(RepositoryLocations(repository.name, Set.empty))
 
-          val variants = VariantMetadata.listVariants(id, repository, commit).flatMap { hash =>
-            VariantMetadata.read(id, hash, repository, commit).map(_.toVariant(id))
+          val variants = RankingMetadata.listRankIds(id, repository, commit).flatMap { rankId =>
+            val ranking = RankingMetadata.read(id, rankId, repository, commit)
+              .getOrElse(throw new Exception("Could not read rank id: " + (id, rankId, repository.dir.getAbsolutePath, commit)))
+            ranking.variants.map { hash =>
+              VariantMetadata.read(id, hash, repository, commit).map(_.toVariant(id))
+                .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash, repository.dir.getAbsolutePath, commit)))
+            }.find { variant =>
+              AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
+            }
           }
+
           variants.map { variant =>
             SearchResult(variant, repository.name, commit, locations, isOffline = true)
           }
@@ -68,8 +139,7 @@ class Adepthub(baseDir: File, url: String, passphrase: Option[String] = None, on
   }
 
   def mergeSearchResults(offline: Set[SearchResult], online: Future[Set[SearchResult]], onlineTimeout: FiniteDuration): Set[SearchResult] = {
-    logger.warn("online search not... online yet .... ")
-    offline
+    ???
   }
 
   val defaultTimeout = {
@@ -81,72 +151,105 @@ class Adepthub(baseDir: File, url: String, passphrase: Option[String] = None, on
     scala.concurrent.ExecutionContext.global //TODO: we should probably have multiple different execution contexts for IO/disk/CPU bound operations
   }
 
-  def search(term: String, onlineTimeout: FiniteDuration = defaultTimeout): Set[SearchResult] = {
-    mergeSearchResults(offline = offlineSearch(term), online = onlineSearch(term), onlineTimeout = onlineTimeout)
+  def search(term: String, constraints: Set[Constraint] = Set.empty, onlineTimeout: FiniteDuration = defaultTimeout): Set[SearchResult] = {
+    //    mergeSearchResults(offline = offlineSearch(term), online = onlineSearch(term), onlineTimeout = onlineTimeout)
+    logger.warn("online search not... online yet .... ")
+    offlineSearch(term, constraints)
   }
 
-  def offlineResolve(requirements: Set[Requirement], variants: Set[Variant], repositories: Set[RepositoryInfo]): Future[Either[String, ResolveResult]] = {
-    
-    ???
+  def createErrorReport(initCompoundInfo: Set[(RepositoryName, Requirement, Commit)], resolutionResults: Set[ResolutionResult], result: ResolveResult) = {
+    println(result)
+    ResolveErrorReport(???, ???)
   }
 
-  def onlineResolve(requirements: Set[Requirement], variants: Set[Variant], repositories: Set[RepositoryInfo]): Future[Either[String, ResolveResult]] = {
-    ???
-  }
-
-  def canOfflineResolve(repositories: Set[RepositoryInfo]): Boolean = {
-    repositories.forall { repositoryInfo =>
-      val repository = new GitRepository(baseDir, repositoryInfo.repository)
-      repository.exists && repository.hasCommit(repositoryInfo.commit)
+  def offlineResolve(compoundInfo: Set[(RepositoryName, Requirement, Commit)], forced: Set[ResolutionResult] = Set.empty): Either[ResolveErrorReport, ResolveResult] = {
+    val allCompoundInfo = GitLoader.getResolutionResults(baseDir, compoundInfo, progress, cacheManager)
+    val allResolutionResults = allCompoundInfo.map {
+      case (resolutionResult, _) =>
+        resolutionResult
     }
-  }
 
-  def updateOffline(repositories: Set[RepositoryInfo])(executionContext: ExecutionContext): Future[Either[Set[RepositoryInfo], Set[RepositoryInfo]]] = {
-    val updates = repositories.flatMap { repositoryInfo =>
-      val repository = new GitRepository(baseDir, repositoryInfo.repository)
-      repositoryInfo.locations.uris.map { uri =>
-        repository.addRemoteUri(GitRepository.DefaultRemote, uri)
-        Future {
-          if (repository.hasCommit(repositoryInfo.commit)) {
-            repositoryInfo
-          } else {
-            repositoryInfo.copy(commit = repository.pull(passphrase, progress = ???))
-          }
-        }(defaultExecutionContext)
+    val providedVariants = Set("", "/config/runtime", "/config/provided", "/config/system", "/config/default", "/config/compile", "/config/master").map { config =>
+      val id = Id("org.scala-lang/scala-library" + config)
+      Variant(id, attributes = Set(Attribute(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))))
+    }
+    val forcedIds = forced.map(_.id).toSet
+    val forcedResolutionResults = allResolutionResults.filter { resolutionResult =>
+        !forcedIds(resolutionResult.id)
       }
-
+    
+    val loader = new GitLoader(baseDir, forcedResolutionResults ++ forced, progress, cacheManager, loadedVariants = providedVariants)
+    val resolver = new Resolver(loader)
+    val requirements = compoundInfo.map {
+      case (_, requirement, _) =>
+        requirement
     }
-    ???
-  }
-
-  def formatUpdateError(failedRepositories: Set[RepositoryInfo]): Either[String, ResolveResult] = {
-    ???
-  }
-
-  def resolve(requirements: Set[Requirement], variants: Set[Variant], repositories: Set[RepositoryInfo], onlineTimeout: FiniteDuration = defaultTimeout) = {
-    if (canOfflineResolve(repositories) && !onlyOnline) { //if possible use offline
-      offlineResolve(requirements, variants, repositories)
-    } else if (onlyOnline) { //or use only online if specified
-      val onlineResults = onlineResolve(requirements, variants, repositories)
-      onlineResults.onSuccess {
-        case Right(results) =>
-          if (results.isResolved) {
-            updateOffline(repositories)(defaultExecutionContext)
-          }
-      }(defaultExecutionContext)
-      onlineResults
-    } else { //if not, try offline update & resolve and hitting online then get the one that finishes first
-      val onlineResults = onlineResolve(requirements, variants, repositories)
-      val offlineRepositories = updateOffline(repositories)(defaultExecutionContext)
-      val offlineResults = offlineRepositories.flatMap {
-        case Right(_) => offlineResolve(requirements, variants, repositories)
-        case Left(error) => Future { formatUpdateError(error) }(defaultExecutionContext)
-      }(defaultExecutionContext)
-      Future.find(Set(onlineResults, offlineResults)) { result =>
-        ???
-      }(defaultExecutionContext)
-      ???
+    val resolveResult = resolver.resolve(requirements)
+    if (resolveResult.isResolved) {
+      Right(resolveResult)
+    } else {
+      Left(createErrorReport(initCompoundInfo = compoundInfo, resolutionResults = allResolutionResults, result = resolveResult))
     }
   }
+
+  //
+  //  def onlineResolve(requirements: Set[Requirement], variants: Set[VariantInfo]): Future[Either[String, ResolveResult]] = {
+  //    ???
+  //  }
+  //
+  //  def canOfflineResolve(repositories: Set[RepositoryInfo]): Boolean = {
+  //    repositories.forall { repositoryInfo =>
+  //      val repository = new GitRepository(baseDir, repositoryInfo.repository)
+  //      repository.exists && repository.hasCommit(repositoryInfo.commit)
+  //    }
+  //  }
+  //
+  //  def updateOffline(repositories: Set[RepositoryInfo])(executionContext: ExecutionContext): Future[Either[Set[RepositoryInfo], Set[RepositoryInfo]]] = {
+  //    val updates = repositories.flatMap { repositoryInfo =>
+  //      val repository = new GitRepository(baseDir, repositoryInfo.repository)
+  //      repositoryInfo.locations.uris.map { uri =>
+  //        repository.addRemoteUri(GitRepository.DefaultRemote, uri)
+  //        Future {
+  //          if (repository.hasCommit(repositoryInfo.commit)) {
+  //            repositoryInfo
+  //          } else {
+  //            repositoryInfo.copy(commit = repository.pull(passphrase, progress = progress))
+  //          }
+  //        }(defaultExecutionContext)
+  //      }
+  //
+  //    }
+  //    ???
+  //  }
+  //
+  //  def formatUpdateError(failedRepositories: Set[RepositoryInfo]): Either[String, ResolveResult] = {
+  //    ???
+  //  }
+  //
+  //  def resolve(requirements: Set[Requirement], variants: Set[VariantInfo], onlineTimeout: FiniteDuration = defaultTimeout) = {
+  //    if (canOfflineResolve(repositories) && !onlyOnline) { //if possible use offline
+  //      offlineResolve(requirements, variants)
+  //    } else if (onlyOnline) { //or use only online if specified
+  //      val onlineResults = onlineResolve(requirements, variants, repositories)
+  //      onlineResults.onSuccess {
+  //        case Right(results) =>
+  //          if (results.isResolved) {
+  //            updateOffline(repositories)(defaultExecutionContext)
+  //          }
+  //      }(defaultExecutionContext)
+  //      onlineResults
+  //    } else { //if not, try offline update & resolve and hitting online then get the one that finishes first
+  //      val onlineResults = onlineResolve(requirements, variants, repositories)
+  //      val offlineRepositories = updateOffline(repositories)(defaultExecutionContext)
+  //      val offlineResults = offlineRepositories.flatMap {
+  //        case Right(_) => offlineResolve(requirements, variants, repositories)
+  //        case Left(error) => Future { formatUpdateError(error) }(defaultExecutionContext)
+  //      }(defaultExecutionContext)
+  //      Future.find(Set(onlineResults, offlineResults)) { result =>
+  //        ???
+  //      }(defaultExecutionContext)
+  //      ???
+  //    }
+  //  }
 
 }

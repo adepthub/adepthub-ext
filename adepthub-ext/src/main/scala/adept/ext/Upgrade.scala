@@ -85,7 +85,7 @@ object Upgrade extends Logging {
         }
       }
     }
-    InternalLockfileWrapper.create(InternalLockfileWrapper.requirements(lockfile), newVariants, InternalLockfileWrapper.artifacts(lockfile))
+    InternalLockfileWrapper.create(InternalLockfileWrapper.requirements(lockfile).to[collection.immutable.Set], newVariants.to[collection.immutable.Set], InternalLockfileWrapper.artifacts(lockfile).to[collection.immutable.Set])
   }
 
   //  def followRedirect(baseDir: File, requirements: Set[LockfileRequirement]): Set[LockfileRequirement] = {

@@ -214,7 +214,7 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
 
   private def getCaller(org: String, name: String) = ModuleRevisionId.newInstance(org, name + "-caller", "working")
 
-  def ivyImport(org: String, name: String, version: String, progress: ProgressMonitor): Either[Set[IvyImportError], Set[IvyImportResult]] = {
+  def ivyImport(org: String, name: String, revision: String, progress: ProgressMonitor): Either[Set[IvyImportError], Set[IvyImportResult]] = {
     var visited = Set.empty[ModuleRevisionId]
     def ivyImport(org: String, name: String, version: String, progress: ProgressMonitor): Either[Set[IvyImportError], Set[IvyImportResult]] = {
       ivy.synchronized { //ivy is not thread safe
@@ -254,7 +254,7 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
         }
       }
     }
-    ivyImport(org, name, version, progress)
+    ivyImport(org, name, revision, progress)
   }
 
   private def getConfigurations(ivyNode: IvyNode, confName: String) = {

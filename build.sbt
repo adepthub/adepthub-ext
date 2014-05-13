@@ -12,8 +12,10 @@ lazy val adepthubExt = project.in(file("adepthub-ext")).settings(
   name := "adepthub-ext",
   organization := "com.adepthub",
   version := "0.9.1-SNAPSHOT",
+  resolvers += Resolver.url("Typesafe Ivy releases", url("https://repo.typesafe.com/typesafe/releases/"))(Resolver.ivyStylePatterns),
   libraryDependencies ++= Seq(
-    "org.scala-sbt.ivy"  % "ivy" % "2.4.0-sbt-d6fca11d63402c92e4167cdf2da91a660d043392",
+    "org.apache.ivy" % "ivy" % "2.3.0",
+    //TODO: typesafe ivy release is down :( renable "org.scala-sbt.ivy"  % "ivy" % "2.4.0-sbt-d6fca11d63402c92e4167cdf2da91a660d043392",
     "org.scalatest" %% "scalatest" % "2.0" % "test")
 ).dependsOn(adeptCore)
 

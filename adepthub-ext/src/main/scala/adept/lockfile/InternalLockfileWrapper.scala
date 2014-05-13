@@ -15,7 +15,7 @@ private[adept] object InternalLockfileWrapper { //All of these visibility limita
     lockfile.artifacts.asScala
   }
 
-  def create(requirements: collection.mutable.Set[LockfileRequirement], variants: collection.mutable.Set[LockfileVariant], artifacts: collection.mutable.Set[LockfileArtifact]) = {
+  def create(requirements: Set[LockfileRequirement], variants: Set[LockfileVariant], artifacts:Set[LockfileArtifact]) = {
     new Lockfile(requirements.asJava, variants.asJava, artifacts.asJava)
   }
 
