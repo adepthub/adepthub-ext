@@ -36,8 +36,9 @@ object Module {
             Attribute(AttributeDefaults.ModuleHashAttribute, Set(moduleHash)),
           requirements = variant.requirements + Requirement(baseId, Set(Constraint(AttributeDefaults.ModuleHashAttribute, Set(moduleHash))), Set.empty))
     }.toMap
-
-    (attributedOtherVariants + attributedBaseVariant)
+    val result = (attributedOtherVariants + attributedBaseVariant)
+    if (result.values.size != variants.size) throw new Exception("Could not modularise! Multiple variants with same hashes? Variants are: " + variants + ". Hashes are: " + result.keys.toSet)
+    result
   }
 
   def getModuleHash(variant: Variant): ModuleHash = {

@@ -37,6 +37,7 @@ import adept.lockfile.{ InternalLockfileWrapper, Lockfile }
 import adept.ext.AttributeDefaults
 import adept.repository.GitLoader
 import net.sf.ehcache.CacheManager
+import adept.ext.JavaVersions
 
 case class SearchResult(variant: Variant, repository: RepositoryName, commit: Commit, locations: RepositoryLocations, isOffline: Boolean)
 case class VariantInfo(id: Id, hash: VariantHash, repository: RepositoryName, commit: Commit, locations: RepositoryLocations)
@@ -53,9 +54,29 @@ object Main extends App { //TODO: remove
   val baseDir = new File(System.getProperty("user.home") + "/.adept")
   val cacheManager = CacheManager.create()
   val adepthub = new Adepthub(baseDir, "http://localhost:9000", cacheManager)
-  //  adepthub.ivyInstall("com.typesafe.akka", "akka-actor_2.10", "2.2.2", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
+
+  //  val resourceFile = new File("/Users/freekh/.ivy2/cache/org.javassist/javassist/ivy-3.18.0-GA.xml.original")
+  //  
+  //  val javacTargetVersion = 
+  //    for {
+  //      plugin <- scala.xml.XML.loadFile(resourceFile) \\ "plugins" \ "plugin"
+  //      if ((plugin \ "groupId").text == "org.apache.maven.plugins")
+  //      if ((plugin \ "artifactId").text == "maven-compiler-plugin")
+  //    } yield {
+  ////      println((plugin \ "groupId"))
+  //      (plugin \ "configuration" \  "target").text 
+  //    }
+  //  println(javacTargetVersion)
+
+  //    adepthub.ivyInstall("org.javassist", "javassist", "3.18.0-GA", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
+//  adepthub.ivyInstall("com.typesafe.akka", "akka-actor_2.10", "2.2.2", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
+  //    adepthub.ivyInstall("org.apache.felix", "felix-parent", "1.2.0", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
+//        adepthub.ivyInstall("org.slf4j", "jul-to-slf4j", "1.7.6", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
+  //adepthub.ivyInstall(org, name, revision, configurations, lockfile, ivy, useScalaConvert)
   val repository = new GitRepository(baseDir, RepositoryName("com.typesafe.akka"))
-  val searchResults = adepthub.search("akka-actor", Set(Constraint(AttributeDefaults.VersionAttribute, Set("2.2.1"))))
+  val searchResults = adepthub.search("com.typesafe.akka/akka-actor/", Set(Constraint(AttributeDefaults.VersionAttribute, Set("2.2.1"))))
+//  val repository = new GitRepository(baseDir, RepositoryName("org.slf4j"))
+//  val searchResults = adepthub.search("jul-to-slf4j")
   val forced = searchResults.map { searchResult =>
     val hash = VariantMetadata.fromVariant(searchResult.variant).hash
     ResolutionResult(searchResult.variant.id, searchResult.repository, searchResult.commit, hash)
@@ -65,6 +86,12 @@ object Main extends App { //TODO: remove
       (repository.name, Requirement(Id("com.typesafe.akka/akka-actor/config/compile"), Set.empty, Set.empty), repository.getHead),
       (repository.name, Requirement(Id("com.typesafe.akka/akka-actor/config/master"), Set.empty, Set.empty), repository.getHead)),
     forced = forced))
+  
+//  println(adepthub.offlineResolve(
+//    Set(
+//      (repository.name, Requirement(Id("org.slf4j/jul-to-slf4j/config/compile"), Set.empty, Set.empty), repository.getHead),
+//      (repository.name, Requirement(Id("org.salf4j/jul-to-slf4j/config/master"), Set.empty, Set.empty), repository.getHead)),
+//    forced = forced))
   cacheManager.shutdown()
 }
 
@@ -100,7 +127,7 @@ class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphras
   }
 
   private def matches(term: String, id: Id) = {
-    id.value.contains(term)
+    (id.value + Id.Sep).contains(term)
   }
 
   def onlineSearch(term: String): Future[Set[SearchResult]] = {
@@ -159,7 +186,7 @@ class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphras
 
   def createErrorReport(initCompoundInfo: Set[(RepositoryName, Requirement, Commit)], resolutionResults: Set[ResolutionResult], result: ResolveResult) = {
     println(result)
-    ResolveErrorReport(???, ???)
+    null
   }
 
   def offlineResolve(compoundInfo: Set[(RepositoryName, Requirement, Commit)], forced: Set[ResolutionResult] = Set.empty): Either[ResolveErrorReport, ResolveResult] = {
@@ -168,16 +195,16 @@ class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphras
       case (resolutionResult, _) =>
         resolutionResult
     }
-
+    val (major, minor) = JavaVersions.getMajorMinorVersion(this.getClass)
     val providedVariants = Set("", "/config/runtime", "/config/provided", "/config/system", "/config/default", "/config/compile", "/config/master").map { config =>
       val id = Id("org.scala-lang/scala-library" + config)
       Variant(id, attributes = Set(Attribute(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))))
-    }
+    } ++ JavaVersions.getVariant(major, minor)
     val forcedIds = forced.map(_.id).toSet
     val forcedResolutionResults = allResolutionResults.filter { resolutionResult =>
-        !forcedIds(resolutionResult.id)
-      }
-    
+      !forcedIds(resolutionResult.id)
+    }
+
     val loader = new GitLoader(baseDir, forcedResolutionResults ++ forced, progress, cacheManager, loadedVariants = providedVariants)
     val resolver = new Resolver(loader)
     val requirements = compoundInfo.map {

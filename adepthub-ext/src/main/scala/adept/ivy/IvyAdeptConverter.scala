@@ -20,6 +20,7 @@ import org.apache.ivy.core.module.descriptor.{ Artifact => IvyArtifact }
 import org.apache.ivy.core.module.descriptor.Configuration.Visibility
 import adept.repository.models.RepositoryName
 import adept.ext.Version
+import adept.ext.JavaVersions
 import adept.resolution.models.Attribute
 import adept.artifact.models.Artifact
 import adept.resolution.models.ArtifactRef
@@ -39,6 +40,8 @@ import adept.artifact.models.ArtifactLocation
 import adept.ext.models.Module
 import adept.repository.models.VariantHash
 import adept.repository.metadata.VariantMetadata
+import org.apache.ivy.plugins.parser.xml.XmlModuleDescriptorParser
+import org.apache.ivy.plugins.parser.m2.PomModuleDescriptorParser
 
 class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[String] = Set("optional"), skippableConf: Option[Set[String]] = Some(Set("javadoc", "sources"))) extends Logging {
   import adept.ext.AttributeDefaults.{ ModuleHashAttribute, VersionAttribute }
@@ -235,6 +238,23 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
               resolveReport
             }
 
+            //            val cache = ivy.getResolveEngine.getSettings().getResolutionCacheManager()
+            //file:/Users/freekh/.ivy2/cache/org.javassist/javassist/ivy-3.18.0-GA.xml.original
+
+            val LocalDescriptorResourceParser = "file:(.*?)".r
+            val resourceFile = module.getResource().getName() match {
+              case LocalDescriptorResourceParser(filename) => new File(filename)
+            }
+            //TODO: add to info
+            if (resourceFile.isFile()) {
+              //TODO: use to check for scm 
+              println(resourceFile.getAbsolutePath()) 
+            }
+            println(module.getDescription())
+            println(module.getHomePage())
+            println(module.getLicenses.toList.map(l => l.getName() -> l.getUrl()))
+            println(module.getPublicationDate())
+
             val current = createIvyResult(workingNode)
             var allResults = current.right.getOrElse(Set.empty[IvyImportResult])
             var errors = current.left.getOrElse(Set.empty[IvyImportError])
@@ -339,7 +359,16 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
             getResult(file)
           }
           assert(foundArtifact.size < 2)
-          foundArtifact.flatten
+          if (foundArtifact.isEmpty && confName == "master") {
+            val foundArtifact = for {
+              file <- Option(artifactReport.getLocalFile()).toSeq
+            } yield {
+              getResult(file)
+            }
+            foundArtifact.flatten
+          } else {
+            foundArtifact.flatten
+          }
         } else {
           None
         }
@@ -418,8 +447,9 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
           case (location, _, file, hash, filename) =>
             new Artifact(hash, file.length, Set(new ArtifactLocation(location)).asJava)
         }
+//        TODO: this does not work on parent modules
         if (confName == "master" && artifacts.isEmpty) {
-          throw new Exception("Could not find any artifacts in master configuration for: " + mrid + ". Failing this import. In  the future we probably want to find a better way of handling/reporting this error.") //TODO: <- ... 
+          throw new Exception("Could not find any artifacts in master configuration for: " + mrid + ". Is this a parent module? Failing this import. In  the future we probably want to find a better way of handling/reporting this error.") //TODO: <- ... 
         }
 
         val artifactRefs = artifactInfos.map {
@@ -432,6 +462,14 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
             hash -> file
         }.toMap
 
+        val javaMajorMinorVersions = artifactInfos.flatMap {
+          case (_, _, file, _, _) =>
+            JavaVersions.getMajorMinorVersion(file)
+        }
+        val javaRequirements = javaMajorMinorVersions.map{ case (major, minor) =>
+          JavaVersions.getRequirement(major, minor)
+        }
+        
         val configurationRequirements = (ivyConfiguration.getExtends().map { targetConf =>
           Requirement(ivyIdAsId(mrid.getModuleId, targetConf), Set.empty, Set.empty)
         }.toSet)
@@ -443,12 +481,13 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
         val thisAdeptExcludedConfigurationIds = excludedConfs.map { conf =>
           ivyIdAsId(mrid.getModuleId, conf)
         }
+        println(javaRequirements)
 
         val variant = Variant(
           id = thisVariantId,
           attributes = attributes + Attribute(ConfigurationAttribute, Set(confName)),
           artifacts = artifactRefs,
-          requirements = (requirements ++ configurationRequirements).filter(r => !thisAdeptExcludedConfigurationIds(r.id))) //remove the requirements we are excluding from Adept (could be optional for example)
+          requirements = (requirements ++ configurationRequirements ++ javaRequirements).filter(r => !thisAdeptExcludedConfigurationIds(r.id))) //remove the requirements we are excluding from Adept (could be optional for example)
 
         val targetVersionInfo = extractTargetVersionInfo(confName, loaded)
         IvyImportResult(
