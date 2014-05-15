@@ -33,7 +33,7 @@ private[adept] object IvyUtils extends Logging {
   lazy val warnIvyLogger = new AdeptIvyMessageLogger(Message.MSG_WARN)
   lazy val infoIvyLogger = new AdeptIvyMessageLogger(Message.MSG_INFO)
   lazy val debugIvyLogger = new AdeptIvyMessageLogger(Message.MSG_DEBUG)
-  
+
   /** As in sbt */
   private[ivy] def cleanModule(mrid: ModuleRevisionId, resolveId: String, manager: ResolutionCacheManager) {
     val files =
@@ -147,8 +147,12 @@ private[adept] object IvyUtils extends Logging {
     all
   }
 
+  def ivyIdAsId(org: String, name: String): Id = {
+    Id(org + Id.Sep + name)
+  }
+
   def ivyIdAsId(moduleId: ModuleId): Id = {
-    Id(moduleId.getOrganisation + Id.Sep + moduleId.getName)
+    ivyIdAsId(moduleId.getOrganisation, moduleId.getName)
   }
 
   def withConfiguration(id: Id, confName: String): Id = {
@@ -161,7 +165,11 @@ private[adept] object IvyUtils extends Logging {
   }
 
   def ivyIdAsRepositoryName(moduleId: ModuleId): RepositoryName = {
-    RepositoryName(moduleId.getOrganisation)
+    ivyIdAsRepositoryName(moduleId.getOrganisation)
+  }
+
+  def ivyIdAsRepositoryName(org: String): RepositoryName = {
+    RepositoryName(org)
   }
 
   def ivyIdAsVersion(mrid: ModuleRevisionId): Version = {

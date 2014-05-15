@@ -42,8 +42,9 @@ import adept.repository.models.VariantHash
 import adept.repository.metadata.VariantMetadata
 import org.apache.ivy.plugins.parser.xml.XmlModuleDescriptorParser
 import org.apache.ivy.plugins.parser.m2.PomModuleDescriptorParser
+import org.apache.ivy.core.retrieve.RetrieveOptions
 
-class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[String] = Set("optional"), skippableConf: Option[Set[String]] = Some(Set("javadoc", "sources"))) extends Logging {
+class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[String] = Set("optional"), skippableConf: Option[Set[String]] = Some(Set("javadoc", "sources")), allowFailedArtifactTypes: Set[String] = Set("sources", "javadoc", "doc", "src")) extends Logging {
   import adept.ext.AttributeDefaults.{ ModuleHashAttribute, VersionAttribute }
   import IvyUtils._
   import IvyConstants._
@@ -177,11 +178,12 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
 
   private def convertResolveReportToEither(resolveReport: ResolveReport) = {
     if (resolveReport.hasError) {
-      val onlySourcesAndJavadocsFailed = resolveReport.getFailedArtifactsReports().forall { artifactReport =>
+      val onlyFailedOnAllowedFailedType = resolveReport.getFailedArtifactsReports().forall { artifactReport =>
         val failedType = artifactReport.getType
-        failedType == "source" || failedType == "javadoc"
+        logger.warn("Failed to get: " + artifactReport + " with type: " + artifactReport.getType)
+        allowFailedArtifactTypes(failedType)
       }
-      if (onlySourcesAndJavadocsFailed) {
+      if (onlyFailedOnAllowedFailedType) {
         logger.debug("Resolver report has errors, but it was only for artifacts of type source and/or javadoc: " + reportErrorString(resolveReport))
         Right(resolveReport)
       } else {
@@ -241,20 +243,23 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
             //            val cache = ivy.getResolveEngine.getSettings().getResolutionCacheManager()
             //file:/Users/freekh/.ivy2/cache/org.javassist/javassist/ivy-3.18.0-GA.xml.original
 
-            val LocalDescriptorResourceParser = "file:(.*?)".r
-            val resourceFile = module.getResource().getName() match {
-              case LocalDescriptorResourceParser(filename) => new File(filename)
-            }
-            //TODO: add to info
-            if (resourceFile.isFile()) {
-              //TODO: use to check for scm 
-              println(resourceFile.getAbsolutePath()) 
-            }
-            println(module.getDescription())
-            println(module.getHomePage())
-            println(module.getLicenses.toList.map(l => l.getName() -> l.getUrl()))
-            println(module.getPublicationDate())
+            if (module != null && module.getResource() != null) {
 
+              val LocalDescriptorResourceParser = "file:(.*?)".r
+              val resourceFile = module.getResource().getName() match {
+                case LocalDescriptorResourceParser(filename) => new File(filename)
+              }
+
+              //TODO: add to info
+              if (resourceFile.isFile()) {
+                //TODO: use to check for scm 
+                println(resourceFile.getAbsolutePath())
+              }
+              println(module.getDescription())
+              println(module.getHomePage())
+              println(module.getLicenses.toList.map(l => l.getName() -> l.getUrl()))
+              println(module.getPublicationDate())
+            }
             val current = createIvyResult(workingNode)
             var allResults = current.right.getOrElse(Set.empty[IvyImportResult])
             var errors = current.left.getOrElse(Set.empty[IvyImportError])
@@ -315,65 +320,103 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
   }
 
   private def extractArtifactInfosAndErrors(mrid: ModuleRevisionId, confName: String) = {
-    var errors = Set.empty[ArtifactLocationError]
-    val resolveReport = ivy.resolve(mrid, resolveOptions(confName), changing)
-    resolveReport.getArtifactsReports(mrid).flatMap { artifactReport =>
-      def getResult(file: File) = {
-        val hash = {
-          val is = new FileInputStream(file)
-          try {
-            new ArtifactHash(Hasher.hash(is))
-          } finally {
-            is.close()
+    def tryExtract(retry: Boolean): (Set[(String, Array[String], File, ArtifactHash, String)], Set[ArtifactLocationError]) = try {
+      var errors = Set.empty[ArtifactLocationError]
+      val resolveReport = ivy.resolve(mrid, resolveOptions(confName), changing)
+      resolveReport.getArtifactsReports(mrid).flatMap { artifactReport =>
+        def getResult(file: File) = {
+          val hash = {
+            val is = new FileInputStream(file)
+            try {
+              new ArtifactHash(Hasher.hash(is))
+            } finally {
+              is.close()
+            }
           }
+
+          val location =
+            if (!artifactReport.getArtifactOrigin().getLocation().startsWith("http")) {
+              //sometimes Ivy does not keep the artifact origin so we must locate it again:
+              val resolverLocation = for {
+                dependencies <- Option(resolveReport.getDependencies()).toArray //should be ok wrt conf, because resolve report is on conf name
+                dependency <- dependencies.toArray(new Array[IvyNode](resolveReport.getDependencies().size))
+                moduleRevision <- Option(dependency.getModuleRevision()).toArray
+                artifactRevId = artifactReport.getArtifact().getModuleRevisionId()
+                resolveReportRevId = moduleRevision.getId()
+                if (artifactRevId.getOrganisation() == resolveReportRevId.getOrganisation())
+                if (artifactRevId.getName == resolveReportRevId.getName)
+                if (artifactRevId.getRevision() == resolveReportRevId.getRevision())
+                artifactResolver <- Option(moduleRevision.getArtifactResolver()).toArray
+              } yield {
+                artifactResolver.locate(artifactReport.getArtifact)
+              }
+              if (resolverLocation.headOption.isDefined && resolverLocation.headOption.get.getLocation().startsWith("http")) {
+                resolverLocation.headOption.get.getLocation() //using the one found by locate
+              } else { //could not find location here either
+                errors += ArtifactLocationError(artifactReport.getArtifactOrigin().getLocation, file) //we must have somewhere we can download this files from 
+              }
+              artifactReport.getArtifactOrigin().getLocation()
+            } else {
+              artifactReport.getArtifactOrigin().getLocation()
+            }
+
+          Some((location, artifactReport.getArtifact().getConfigurations(), file, hash, file.getName))
         }
-        val location = artifactReport.getArtifactOrigin().getLocation()
-        if (!location.startsWith("http")) errors += ArtifactLocationError(location, file) //we must have somewhere we can download this files from
-        Some((location, artifactReport.getArtifact().getConfigurations(), file, hash, file.getName))
-      }
-      if (artifactReport.getArtifact().getConfigurations().toList.contains(confName)) {
-        val file = artifactReport.getLocalFile
-        if (file != null) {
-          getResult(file)
-        } else if (file == null && skippableConf.isDefined && skippableConf.get(confName)) {
-          None
-        } else {
-          throw new Exception("Could not download: " + mrid + " in " + confName)
-        }
-      } else {
-        if (artifactReport.getArtifact().getConfigurations().toList.isEmpty) {
-          logger.debug("Ivy has an issue where sometimes configurations are not read. Reading them manually for: " + mrid + " conf: " + confName)
-          //WORKAROUND :(  there is an issue in ivy where it sometimes leaves out the confs for artifacts (I think this happens for modules that do not have dependencies)
-          val foundArtifact = for {
-            file <- Option(artifactReport.getLocalFile()).toSeq
-            cacheIvyDescriptorDir = new File(file.getAbsolutePath().replace("jars" + File.separator + file.getName, ""))
-            if cacheIvyDescriptorDir.isDirectory()
-            ivyXmlFile = new File(cacheIvyDescriptorDir, "ivy-" + artifactReport.getArtifact().getModuleRevisionId().getRevision() + ".xml")
-            if ivyXmlFile.isFile()
-            artifact <- XML.loadFile(ivyXmlFile) \\ "ivy-module" \ "publications" \ "artifact"
-            if (artifact \ "@name").text == artifactReport.getName()
-            confs = (artifact \ "@conf").text.split(",")
-            currentConf <- confs
-            if currentConf == confName
-          } yield {
+        if (artifactReport.getArtifact().getConfigurations().toList.contains(confName)) {
+          val file = artifactReport.getLocalFile
+          if (file != null) {
             getResult(file)
+          } else if (file == null && skippableConf.isDefined && skippableConf.get(confName)) {
+            None
+          } else {
+            throw new Exception("Could not download: " + mrid + " in " + confName)
           }
-          assert(foundArtifact.size < 2)
-          if (foundArtifact.isEmpty && confName == "master") {
+        } else {
+          if (artifactReport.getArtifact().getConfigurations().toList.isEmpty) {
+            logger.debug("Ivy has an issue where sometimes configurations are not read. Reading them manually for: " + mrid + " conf: " + confName)
+            //WORKAROUND :(  there is an issue in ivy where it sometimes leaves out the confs for artifacts (I think this happens for modules that do not have dependencies)
             val foundArtifact = for {
               file <- Option(artifactReport.getLocalFile()).toSeq
+              cacheIvyDescriptorDir = new File(file.getAbsolutePath().replace("jars" + File.separator + file.getName, ""))
+              if cacheIvyDescriptorDir.isDirectory()
+              ivyXmlFile = new File(cacheIvyDescriptorDir, "ivy-" + artifactReport.getArtifact().getModuleRevisionId().getRevision() + ".xml")
+              if ivyXmlFile.isFile()
+              artifact <- XML.loadFile(ivyXmlFile) \\ "ivy-module" \ "publications" \ "artifact"
+              if (artifact \ "@name").text == artifactReport.getName()
+              confs = (artifact \ "@conf").text.split(",")
+              currentConf <- confs
+              if currentConf == confName
             } yield {
               getResult(file)
             }
-            foundArtifact.flatten
+            assert(foundArtifact.size < 2)
+            if (foundArtifact.isEmpty && confName == "master") {
+              val foundArtifact = for {
+                file <- Option(artifactReport.getLocalFile()).toSeq
+              } yield {
+                getResult(file)
+              }
+              foundArtifact.flatten
+            } else {
+              foundArtifact.flatten
+            }
           } else {
-            foundArtifact.flatten
+            None
           }
-        } else {
-          None
         }
-      }
-    }.toSet -> errors
+      }.toSet -> errors
+    } catch {
+      case e: ArtifactLocationError =>
+        if (retry) {
+          import scala.reflect.io.Directory
+          logger.debug("Failed with: " + e.getMessage() + ". Deleting: " + e.file.getParentFile.getAbsolutePath() + " and trying again...")
+          Directory(e.file.getParentFile).deleteRecursively
+          tryExtract(false)
+        } else {
+          throw e
+        }
+    }
+    tryExtract(true)
   }
 
   private def extractTargetVersionInfo(confName: String, loaded: Set[IvyNode]) = {
@@ -447,7 +490,7 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
           case (location, _, file, hash, filename) =>
             new Artifact(hash, file.length, Set(new ArtifactLocation(location)).asJava)
         }
-//        TODO: this does not work on parent modules
+        //        TODO: this does not work on parent modules
         if (confName == "master" && artifacts.isEmpty) {
           throw new Exception("Could not find any artifacts in master configuration for: " + mrid + ". Is this a parent module? Failing this import. In  the future we probably want to find a better way of handling/reporting this error.") //TODO: <- ... 
         }
@@ -466,10 +509,11 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
           case (_, _, file, _, _) =>
             JavaVersions.getMajorMinorVersion(file)
         }
-        val javaRequirements = javaMajorMinorVersions.map{ case (major, minor) =>
-          JavaVersions.getRequirement(major, minor)
+        val javaRequirements = javaMajorMinorVersions.map {
+          case (major, minor) =>
+            JavaVersions.getRequirement(major, minor)
         }
-        
+
         val configurationRequirements = (ivyConfiguration.getExtends().map { targetConf =>
           Requirement(ivyIdAsId(mrid.getModuleId, targetConf), Set.empty, Set.empty)
         }.toSet)

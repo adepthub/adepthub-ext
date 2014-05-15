@@ -26,7 +26,7 @@ object ScalaBinaryVersionConverter extends Logging {
     Id("org.scala-lang/scala-library/config/system"),
     Id("org.scala-lang/scala-library"))
 
-  private def extractId(id: Id) = { //TODO: , exists: (RepositoryName, Id) => Boolean
+  private[adept] def extractId(id: Id) = { //TODO: , exists: (RepositoryName, Id) => Boolean
     id.value match {
       case ScalaBinaryVersionRegex(newId, binaryVersion, rest) => //TODO: if exists(name, id) =>
         Id(newId + Option(rest).getOrElse(""))
