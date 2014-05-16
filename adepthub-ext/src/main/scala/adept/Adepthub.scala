@@ -70,9 +70,9 @@ object Main extends App { //TODO: remove
 
   //    adepthub.ivyInstall("org.javassist", "javassist", "3.18.0-GA", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
   val ivy = adepthub.defaultIvy
-  ivy.configure(new File("/Users/freekh/Projects/adepthub-ext/adepthub-ext/src/test/resources/sbt-plugin-ivy-settings.xml"))
-  val org = "com.typesafe.play"
-  val name = "sbt-plugin"
+//  ivy.configure(new File("/Users/freekh/Projects/adepthub-ext/adepthub-ext/src/test/resources/sbt-plugin-ivy-settings.xml"))
+  val org = "com.typesafe.akka"
+  val name = "akka-actor_2.10"
   val revision = "2.2.1"
   //
   //  val org = "org.scala-sbt"
@@ -90,7 +90,7 @@ object Main extends App { //TODO: remove
   }
   println(adepthub.offlineResolve(
     Set(
-      (repository.name, Requirement(Id(org + "/" + name + "/config/compile"), Set.empty, Set.empty), repository.getHead)),
+      (repository.name, Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/compile")), Set.empty, Set.empty), repository.getHead)),
     //      (repository.name, Requirement(Id(org + "/" + name + "/config/master"), Set.empty, Set.empty), repository.getHead)),
     forced = forced))
 
@@ -98,12 +98,13 @@ object Main extends App { //TODO: remove
 }
 
 class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphrase: Option[String] = None, onlyOnline: Boolean = false, progress: ProgressMonitor = new TextProgressMonitor) extends Logging { //TODO: make logging configurable
+  val adept = new Adept(baseDir, cacheManager, passphrase, progress)
   def defaultIvy = IvyUtils.load(ivyLogger = IvyUtils.warnIvyLogger)
 
   def ivyInstall(org: String, name: String, revision: String, configurations: Set[String], lockfile: Lockfile, ivy: Ivy = defaultIvy, useScalaConvert: Boolean = true) = {
     val id = ScalaBinaryVersionConverter.extractId(IvyUtils.ivyIdAsId(org, name))
     val repositoryName = IvyUtils.ivyIdAsRepositoryName(org)
-    val foundMatchingVariants = offlineSearchRepository(id.value, name = repositoryName, constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
+    val foundMatchingVariants = adept.searchRepository(id.value, name = repositoryName, constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
     val skipImport = !revision.endsWith("SNAPSHOT") && foundMatchingVariants.nonEmpty
 
     if (!skipImport) {
@@ -138,51 +139,11 @@ class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphras
     }
   }
 
-  private def matches(term: String, id: Id) = {
-    (id.value + Id.Sep).contains(term)
-  }
-
   def onlineSearch(term: String): Future[Set[SearchResult]] = {
     ???
   }
 
-  def offlineSearchRepository(term: String, name: RepositoryName, constraints: Set[Constraint] = Set.empty): Set[SearchResult] = {
-    val repository = new GitRepository(baseDir, name)
-    if (repository.exists) {
-      val commit = repository.getHead
-      VariantMetadata.listIds(repository, commit).flatMap { id =>
-        if (matches(term, id)) {
-          val locations: RepositoryLocations = repository.getRemoteUri(GitRepository.DefaultRemote).map { location =>
-            RepositoryLocations(repository.name, Set(location))
-          }.getOrElse(RepositoryLocations(repository.name, Set.empty))
-
-          val variants = RankingMetadata.listRankIds(id, repository, commit).flatMap { rankId =>
-            val ranking = RankingMetadata.read(id, rankId, repository, commit)
-              .getOrElse(throw new Exception("Could not read rank id: " + (id, rankId, repository.dir.getAbsolutePath, commit)))
-            ranking.variants.map { hash =>
-              VariantMetadata.read(id, hash, repository, commit).map(_.toVariant(id))
-                .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash, repository.dir.getAbsolutePath, commit)))
-            }.find { variant =>
-              AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
-            }
-          }
-
-          variants.map { variant =>
-            SearchResult(variant, repository.name, commit, locations, isOffline = true)
-          }
-        } else {
-          Set.empty[SearchResult]
-        }
-      }
-    } else {
-      Set.empty[SearchResult]
-    }
-  }
-  def offlineSearch(term: String, constraints: Set[Constraint] = Set.empty): Set[SearchResult] = {
-    Repository.listRepositories(baseDir).flatMap { name =>
-      offlineSearchRepository(term, name, constraints)
-    }
-  }
+  
 
   def mergeSearchResults(offline: Set[SearchResult], online: Future[Set[SearchResult]], onlineTimeout: FiniteDuration): Set[SearchResult] = {
     ???
@@ -200,7 +161,7 @@ class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphras
   def search(term: String, constraints: Set[Constraint] = Set.empty, onlineTimeout: FiniteDuration = defaultTimeout): Set[SearchResult] = {
     //    mergeSearchResults(offline = offlineSearch(term), online = onlineSearch(term), onlineTimeout = onlineTimeout)
     logger.warn("online search not... online yet .... ")
-    offlineSearch(term, constraints)
+    adept.search(term, constraints)
   }
 
   def createErrorReport(initCompoundInfo: Set[(RepositoryName, Requirement, Commit)], resolutionResults: Set[ResolutionResult], result: ResolveResult) = {
