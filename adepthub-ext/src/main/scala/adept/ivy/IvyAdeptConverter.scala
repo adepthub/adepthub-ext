@@ -525,7 +525,7 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
         val thisAdeptExcludedConfigurationIds = excludedConfs.map { conf =>
           ivyIdAsId(mrid.getModuleId, conf)
         }
-        println(javaRequirements)
+        println(id + " JAVA REQS: " + javaRequirements)
 
         val variant = Variant(
           id = thisVariantId,

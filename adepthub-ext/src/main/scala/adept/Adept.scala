@@ -22,7 +22,7 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
     (id.value + Id.Sep).contains(term)
   }
 
-  def searchRepository(term: String, name: RepositoryName, constraints: Set[Constraint] = Set.empty): Set[SearchResult] = {
+  def searchRepository(term: String, name: RepositoryName, constraints: Set[Constraint] = Set.empty): Set[GitSearchResult] = {
     val repository = new GitRepository(baseDir, name)
     if (repository.exists) {
       val commit = repository.getHead
@@ -44,18 +44,18 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
           }
 
           variants.map { variant =>
-            SearchResult(variant, repository.name, commit, locations, isOffline = true)
+            GitSearchResult(variant, repository.name, commit, locations, isOffline = true)
           }
         } else {
-          Set.empty[SearchResult]
+          Set.empty[GitSearchResult]
         }
       }
     } else {
-      Set.empty[SearchResult]
+      Set.empty[GitSearchResult]
     }
   }
   
-  def search(term: String, constraints: Set[Constraint] = Set.empty): Set[SearchResult] = {
+  def search(term: String, constraints: Set[Constraint] = Set.empty): Set[GitSearchResult] = {
     Repository.listRepositories(baseDir).flatMap { name =>
       searchRepository(term, name, constraints)
     }

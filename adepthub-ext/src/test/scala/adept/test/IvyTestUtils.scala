@@ -46,10 +46,10 @@ object IvyTestUtils {
     }
 
     val resolutionResults = benchmark(Inserted, results) {
-      IvyImportResultInserter.insertAsResolutionResults(tmpDir, results, progress)
+      IvyImportResultInserter.insertAsResolutionResults(tmpDir, tmpDir, results, progress)
     }
     val resolutionResults2 = benchmark(InsertAfterInserted, results) {
-      IvyImportResultInserter.insertAsResolutionResults(tmpDir, results, progress)
+      IvyImportResultInserter.insertAsResolutionResults(tmpDir, tmpDir, results, progress)
     }
     resolutionResults shouldEqual resolutionResults2
 
@@ -63,7 +63,7 @@ object IvyTestUtils {
       if (errors.nonEmpty) println(errors.mkString("\n")) //print to see errors on failure
       errors should have size (0)
       val loader = benchmark(Loaded, resolutionResults) {
-        new GitLoader(tmpDir, resolutionResults, progress, cacheManager)
+        new GitLoader(tmpDir, resolutionResults, cacheManager = cacheManager, progress = progress)
       }
       val result = benchmark(Resolved, requirements(confName) && loader) {
         resolve(requirements(confName), loader)

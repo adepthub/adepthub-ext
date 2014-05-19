@@ -99,7 +99,7 @@ object DELETEME {
     }
 
     if (nonExistingScalaIvyImports.nonEmpty) {
-      IvyImportResultInserter.insertAsResolutionResults(baseDir, nonExistingScalaIvyImports, progress)
+      IvyImportResultInserter.insertAsResolutionResults(baseDir, baseDir, nonExistingScalaIvyImports, progress)
 
       var (addFiles, rmFiles) = Set.empty[File] -> Set.empty[File]
       nonExistingScalaIvyImports.foreach { nonExistingScalaIvyImports =>
@@ -169,7 +169,7 @@ class DELETEMETest extends FunSuite with Matchers {
       newResults
     }
 
-    val insertedResults = IvyImportResultInserter.insertAsResolutionResults(tmpDir, ivyResults, progress)
+    val insertedResults = IvyImportResultInserter.insertAsResolutionResults(tmpDir, tmpDir, ivyResults, progress)
     val semverResults = insertedResults
       .filter { case result => result.repository == RepositoryName(repoName) }
 

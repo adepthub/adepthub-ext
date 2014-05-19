@@ -25,6 +25,7 @@ import adept.repository.Repository
 import adept.repository.GitRepository
 import adept.repository.metadata.VariantMetadata
 import adept.repository.metadata.RankingMetadata
+import adept.repository.metadata.ResolutionResultsMetadata
 import adept.ivy.IvyUtils
 import adept.ivy.IvyConstants
 import adept.ivy.IvyAdeptConverter
@@ -38,8 +39,11 @@ import adept.ext.AttributeDefaults
 import adept.repository.GitLoader
 import net.sf.ehcache.CacheManager
 import adept.ext.JavaVersions
+import adept.ext.VersionRank
 
-case class SearchResult(variant: Variant, repository: RepositoryName, commit: Commit, locations: RepositoryLocations, isOffline: Boolean)
+sealed class SearchResult(val variant: Variant, val repository: RepositoryName, val isImport: Boolean)
+case class ImportSearchResult(override val variant: Variant, override val repository: RepositoryName) extends SearchResult(variant, repository, isImport = true)
+case class GitSearchResult(override val variant: Variant, override val repository: RepositoryName, commit: Commit, locations: RepositoryLocations, isOffline: Boolean) extends SearchResult(variant, repository, isImport = false)
 case class VariantInfo(id: Id, hash: VariantHash, repository: RepositoryName, commit: Commit, locations: RepositoryLocations)
 
 case class ResolveErrorReport(message: String, result: ResolveResult)
@@ -52,60 +56,74 @@ package object Implicits {
 
 object Main extends App { //TODO: remove
   val baseDir = new File(System.getProperty("user.home") + "/.adept")
+  val importsDir = new File("imports")
+
   val cacheManager = CacheManager.create()
-  val adepthub = new Adepthub(baseDir, "http://localhost:9000", cacheManager)
+  try {
+    val adepthub = new AdeptHub(baseDir, importsDir, "http://localhost:9000", cacheManager)
 
-  //  val resourceFile = new File("/Users/freekh/.ivy2/cache/org.javassist/javassist/ivy-3.18.0-GA.xml.original")
-  //  
-  //  val javacTargetVersion = 
-  //    for {
-  //      plugin <- scala.xml.XML.loadFile(resourceFile) \\ "plugins" \ "plugin"
-  //      if ((plugin \ "groupId").text == "org.apache.maven.plugins")
-  //      if ((plugin \ "artifactId").text == "maven-compiler-plugin")
-  //    } yield {
-  ////      println((plugin \ "groupId"))
-  //      (plugin \ "configuration" \  "target").text 
-  //    }
-  //  println(javacTargetVersion)
+    //  val resourceFile = new File("/Users/freekh/.ivy2/cache/org.javassist/javassist/ivy-3.18.0-GA.xml.original")
+    //  
+    //  val javacTargetVersion = 
+    //    for {
+    //      plugin <- scala.xml.XML.loadFile(resourceFile) \\ "plugins" \ "plugin"
+    //      if ((plugin \ "groupId").text == "org.apache.maven.plugins")
+    //      if ((plugin \ "artifactId").text == "maven-compiler-plugin")
+    //    } yield {
+    ////      println((plugin \ "groupId"))
+    //      (plugin \ "configuration" \  "target").text 
+    //    }
+    //  println(javacTargetVersion)
 
-  //    adepthub.ivyInstall("org.javassist", "javassist", "3.18.0-GA", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
-  val ivy = adepthub.defaultIvy
-//  ivy.configure(new File("/Users/freekh/Projects/adepthub-ext/adepthub-ext/src/test/resources/sbt-plugin-ivy-settings.xml"))
-  val org = "com.typesafe.akka"
-  val name = "akka-actor_2.10"
-  val revision = "2.2.1"
-  //
-  //  val org = "org.scala-sbt"
-  //  val name = "precompiled-2_9_3"
-  //  val revision = "0.13.0"
+    //    adepthub.ivyInstall("org.javassist", "javassist", "3.18.0-GA", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
+    val ivy = adepthub.defaultIvy
+    //  ivy.configure(new File("/Users/freekh/Projects/adepthub-ext/adepthub-ext/src/test/resources/sbt-plugin-ivy-settings.xml"))
+    val org = "com.typesafe.akka"
+    val name = "akka-remote_2.10"
+    val revision = "2.2.2"
+    //
+    //  val org = "org.scala-sbt"
+    //  val name = "precompiled-2_9_3"
+    //  val revision = "0.13.0"
 
-  val ivyInstallResults = adepthub.ivyInstall(org, name, revision, Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty), ivy = ivy)
-  if (ivyInstallResults.isLeft) println(ivyInstallResults)
-  
-  val repository = new GitRepository(baseDir, RepositoryName(org))
-  val searchResults = adepthub.search(org + "/" + name + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
-  val forced = searchResults.map { searchResult =>
-    val hash = VariantMetadata.fromVariant(searchResult.variant).hash
-    ResolutionResult(searchResult.variant.id, searchResult.repository, searchResult.commit, hash)
+    val ivyInstallResults = adepthub.ivyInstall(org, name, revision, Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty), ivy = ivy)
+    if (ivyInstallResults.isLeft) println(ivyInstallResults)
+
+    val repository = new GitRepository(baseDir, RepositoryName(org))
+    val searchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
+    val inputContext = searchResults.map {
+      case searchResult: ImportSearchResult =>
+        val hash = VariantMetadata.fromVariant(searchResult.variant).hash
+        ResolutionResult(searchResult.variant.id, searchResult.repository, None, hash)
+      case searchResult: GitSearchResult =>
+        val hash = VariantMetadata.fromVariant(searchResult.variant).hash
+        ResolutionResult(searchResult.variant.id, searchResult.repository, Some(searchResult.commit), hash)
+      case searchResult: SearchResult =>
+        throw new Exception("Found a search result but expected either an import or a git search result: " + searchResult)
+    }
+    println(searchResults.filter(_.variant.id.value.startsWith("com.typesafe.akka/akka-remote")).mkString("\n"))
+
+    println(adepthub.offlineResolve(
+      Set(
+        Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/compile")), Set.empty, Set.empty),
+        Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/master")), Set.empty, Set.empty)),
+      importsDir = Some(importsDir),
+      inputContext = inputContext,
+      overrides = inputContext))
+  } finally {
+    cacheManager.shutdown()
   }
-  println(adepthub.offlineResolve(
-    Set(
-      (repository.name, Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/compile")), Set.empty, Set.empty), repository.getHead)),
-    //      (repository.name, Requirement(Id(org + "/" + name + "/config/master"), Set.empty, Set.empty), repository.getHead)),
-    forced = forced))
-
-  cacheManager.shutdown()
 }
 
-class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphrase: Option[String] = None, onlyOnline: Boolean = false, progress: ProgressMonitor = new TextProgressMonitor) extends Logging { //TODO: make logging configurable
+class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: CacheManager, passphrase: Option[String] = None, onlyOnline: Boolean = false, progress: ProgressMonitor = new TextProgressMonitor) extends Logging { //TODO: make logging configurable
   val adept = new Adept(baseDir, cacheManager, passphrase, progress)
   def defaultIvy = IvyUtils.load(ivyLogger = IvyUtils.warnIvyLogger)
 
-  def ivyInstall(org: String, name: String, revision: String, configurations: Set[String], lockfile: Lockfile, ivy: Ivy = defaultIvy, useScalaConvert: Boolean = true) = {
+  def ivyInstall(org: String, name: String, revision: String, configurations: Set[String], lockfile: Lockfile, ivy: Ivy = defaultIvy, useScalaConvert: Boolean = true, forceImport: Boolean = false) = {
     val id = ScalaBinaryVersionConverter.extractId(IvyUtils.ivyIdAsId(org, name))
     val repositoryName = IvyUtils.ivyIdAsRepositoryName(org)
     val foundMatchingVariants = adept.searchRepository(id.value, name = repositoryName, constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
-    val skipImport = !revision.endsWith("SNAPSHOT") && foundMatchingVariants.nonEmpty
+    val skipImport = !forceImport && !revision.endsWith("SNAPSHOT") && foundMatchingVariants.nonEmpty
 
     if (!skipImport) {
       val ivyAdeptConverter = new IvyAdeptConverter(ivy)
@@ -117,7 +135,7 @@ class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphras
             }
           } else ivyResults
 
-          val resolutionResults = IvyImportResultInserter.insertAsResolutionResults(baseDir, convertedIvyResults, progress)
+          val resolutionResults = IvyImportResultInserter.insertAsResolutionResults(importsDir, baseDir, convertedIvyResults, progress)
           val installVariants = {
             ivyResults.filter { ivyResult =>
               val variant = ivyResult.variant
@@ -143,8 +161,6 @@ class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphras
     ???
   }
 
-  
-
   def mergeSearchResults(offline: Set[SearchResult], online: Future[Set[SearchResult]], onlineTimeout: FiniteDuration): Set[SearchResult] = {
     ???
   }
@@ -158,45 +174,67 @@ class Adepthub(baseDir: File, url: String, cacheManager: CacheManager, passphras
     scala.concurrent.ExecutionContext.global //TODO: we should probably have multiple different execution contexts for IO/disk/CPU bound operations
   }
 
+  def searchImportRepository(term: String, name: RepositoryName, constraints: Set[Constraint] = Set.empty): Set[ImportSearchResult] = {
+    val repository = new Repository(importsDir, name)
+    if (repository.exists) {
+      VariantMetadata.listIds(repository).flatMap { id =>
+        if (adept.matches(term, id)) {
+          val variants = RankingMetadata.listRankIds(id, repository).flatMap { rankId =>
+            val ranking = RankingMetadata.read(id, rankId, repository)
+              .getOrElse(throw new Exception("Could not read rank id: " + (id, rankId, repository.dir.getAbsolutePath)))
+            ranking.variants.map { hash =>
+              VariantMetadata.read(id, hash, repository, checkHash = true).map(_.toVariant(id))
+                .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash, repository.dir.getAbsolutePath)))
+            }.find { variant =>
+              AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
+            }
+          }
+
+          variants.map { variant =>
+            ImportSearchResult(variant, repository.name)
+          }
+        } else {
+          Set.empty[ImportSearchResult]
+        }
+      }
+    } else {
+      Set.empty[ImportSearchResult]
+    }
+  }
+
+  def searchImport(term: String, constraints: Set[Constraint] = Set.empty): Set[ImportSearchResult] = {
+    Repository.listRepositories(importsDir).flatMap { name =>
+      searchImportRepository(term, name, constraints)
+    }
+  }
+
   def search(term: String, constraints: Set[Constraint] = Set.empty, onlineTimeout: FiniteDuration = defaultTimeout): Set[SearchResult] = {
     //    mergeSearchResults(offline = offlineSearch(term), online = onlineSearch(term), onlineTimeout = onlineTimeout)
     logger.warn("online search not... online yet .... ")
-    adept.search(term, constraints)
+    adept.search(term, constraints) ++ searchImport(term, constraints)
   }
 
-  def createErrorReport(initCompoundInfo: Set[(RepositoryName, Requirement, Commit)], resolutionResults: Set[ResolutionResult], result: ResolveResult) = {
+  def createErrorReport(requirements: Set[Requirement], resolutionResults: Set[ResolutionResult], overrides: Set[ResolutionResult], transitiveContext: Set[ResolutionResult], result: ResolveResult) = {
     println(result)
     null
   }
 
-  def offlineResolve(compoundInfo: Set[(RepositoryName, Requirement, Commit)], forced: Set[ResolutionResult] = Set.empty): Either[ResolveErrorReport, ResolveResult] = {
-    val allCompoundInfo = GitLoader.getResolutionResults(baseDir, compoundInfo, progress, cacheManager)
-    val allResolutionResults = allCompoundInfo.map {
-      case (resolutionResult, _) =>
-        resolutionResult
-    }
+  def offlineResolve(requirements: Set[Requirement], inputContext: Set[ResolutionResult], overrides: Set[ResolutionResult] = Set.empty, importsDir: Option[File] = None): Either[ResolveErrorReport, ResolveResult] = {
+    val overriddenInputContext = GitLoader.applyOverrides(inputContext, overrides)
+    val context = GitLoader.computeTransitiveContext(baseDir, overriddenInputContext, importsDir)
+    val overriddenContext = GitLoader.applyOverrides(context, overrides)
+
     val (major, minor) = JavaVersions.getMajorMinorVersion(this.getClass)
     val providedVariants = Set("", "/config/runtime", "/config/provided", "/config/system", "/config/default", "/config/compile", "/config/master").map { config =>
       val id = Id("org.scala-lang/scala-library" + config)
       Variant(id, attributes = Set(Attribute(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))))
     } ++ JavaVersions.getVariant(major, minor)
-    val forcedIds = forced.map(_.id).toSet
-    val forcedResolutionResults = allResolutionResults.filter { resolutionResult =>
-      !forcedIds(resolutionResult.id)
-    }
 
-    val loader = new GitLoader(baseDir, forcedResolutionResults ++ forced, progress, cacheManager, loadedVariants = providedVariants)
+    val loader = new GitLoader(baseDir, overriddenContext, cacheManager = cacheManager, unversionedBaseDirs = importsDir.toSet, loadedVariants = providedVariants, progress = progress)
     val resolver = new Resolver(loader)
-    val requirements = compoundInfo.map {
-      case (_, requirement, _) =>
-        requirement
-    }
-    val resolveResult = resolver.resolve(requirements)
-    if (resolveResult.isResolved) {
-      Right(resolveResult)
-    } else {
-      Left(createErrorReport(initCompoundInfo = compoundInfo, resolutionResults = allResolutionResults, result = resolveResult))
-    }
+    val result = resolver.resolve(requirements)
+    if (result.isResolved) Right(result)
+    else Left(createErrorReport(requirements, inputContext, overrides, overriddenContext, result))
   }
 
   //
