@@ -242,7 +242,6 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
 
             //            val cache = ivy.getResolveEngine.getSettings().getResolutionCacheManager()
             //file:/Users/freekh/.ivy2/cache/org.javassist/javassist/ivy-3.18.0-GA.xml.original
-
             if (module != null && module.getResource() != null) {
 
               val LocalDescriptorResourceParser = "file:(.*?)".r
@@ -525,8 +524,6 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
         val thisAdeptExcludedConfigurationIds = excludedConfs.map { conf =>
           ivyIdAsId(mrid.getModuleId, conf)
         }
-        println(id + " JAVA REQS: " + javaRequirements)
-
         val variant = Variant(
           id = thisVariantId,
           attributes = attributes + Attribute(ConfigurationAttribute, Set(confName)),

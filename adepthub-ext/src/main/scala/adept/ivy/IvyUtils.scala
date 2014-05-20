@@ -45,6 +45,7 @@ private[adept] object IvyUtils extends Logging {
     files.foreach { file =>
       (new Directory(file)).deleteRecursively() //TODO: I hope this works on files and on directories? Perhaps use something else? 
     }
+    //TODO: replace the above with this: manager.clean() ?
   }
 
   def getExcludeRules(parentNode: IvyNode, ivyNode: IvyNode) = {

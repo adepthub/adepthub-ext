@@ -103,7 +103,7 @@ object VersionRank extends Logging {
           val commit = repository.getHead
           VersionScanner.findVersion(targetId, targetVersion, repository, commit) match {
             case Some(targetHash) =>
-              val result = ResolutionResult(targetId, targetName, commit, targetHash)
+              val result = ResolutionResult(targetId, targetName, Some(commit), targetHash)
               val transitive = ResolutionResultsMetadata.read(targetId, targetHash, repository, commit).toSeq.flatMap(_.values)
               results ++= transitive.toSet + result
             case None =>
@@ -298,7 +298,7 @@ object VersionRank extends Logging {
       val maybeBinaryVersion = currentResults.headOption.flatMap { matchingRepositoryInfo =>
         val foundVariant = {
           val maybeMetadata = VariantMetadata.read(matchingRepositoryInfo.id, matchingRepositoryInfo.variant,
-            repository, matchingRepositoryInfo.commit)
+            repository, matchingRepositoryInfo.commit.getOrElse(throw new Exception("Exepected matching repo to have a commit: "+ matchingRepositoryInfo)))
           val metadata = maybeMetadata.getOrElse(throw new Exception("Aborting binary version update because we could not update required variant for: " + matchingRepositoryInfo + " in " + repository.dir))
           metadata.toVariant(matchingRepositoryInfo.id)
         }
@@ -324,7 +324,7 @@ object VersionRank extends Logging {
             metadata.toVariant(otherId)
           }
           val resolutionResults = ResolutionResultsMetadata.read(otherId, otherHash, otherRepo, otherCommit).getOrElse {
-            ResolutionResultsMetadata(Seq(ResolutionResult(otherId, otherRepo.name, otherCommit, otherHash)))
+            ResolutionResultsMetadata(Seq(ResolutionResult(otherId, otherRepo.name, Some(otherCommit), otherHash)))
           }
           val (fixedRequirements, untouchedRequirements) = getBinaryVersionRequirements(otherVariant, resolutionResults)
 

@@ -18,7 +18,7 @@ object MetadataUpdate {
         ResolutionResultsMetadata.read(id, hash, repository, commit).foreach { metadata =>
           val oldValues = metadata.values
           val newValues = metadata.values.map { r =>
-            if (repositoryIds(r.id)) r.copy(commit = commit)
+            if (repositoryIds(r.id)) r.copy(commit = Some(commit))
             else r
           }
           changedFiles += ResolutionResultsMetadata(newValues).write(id, hash, repository)

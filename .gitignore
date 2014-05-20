@@ -40,4 +40,5 @@ build
 tmp
 
 # Test ivy tmp files:
-.ivy2-adept
+imports/**
+
