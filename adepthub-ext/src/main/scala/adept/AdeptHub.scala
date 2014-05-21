@@ -55,10 +55,14 @@ import org.apache.http.entity.mime.content.FileBody
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.entity.ContentType
 import org.apache.http.client.methods.RequestBuilder
+import play.api.libs.json.Json
+import org.apache.http.StatusLine
+import _root_.adepthub.models.ContributionResult
+import adepthub.models.SearchResult
+import adepthub.models.ImportSearchResult
+import adepthub.models.GitSearchResult
 
-sealed class SearchResult(val variant: Variant, val repository: RepositoryName, val isImport: Boolean)
-case class ImportSearchResult(override val variant: Variant, override val repository: RepositoryName) extends SearchResult(variant, repository, isImport = true)
-case class GitSearchResult(override val variant: Variant, override val repository: RepositoryName, commit: Commit, locations: RepositoryLocations, isOffline: Boolean) extends SearchResult(variant, repository, isImport = false)
+
 case class VariantInfo(id: Id, hash: VariantHash, repository: RepositoryName, commit: Commit, locations: RepositoryLocations)
 
 case class ResolveErrorReport(message: String, result: ResolveResult)
@@ -76,57 +80,40 @@ object Main extends App { //TODO: remove
   val cacheManager = CacheManager.create()
   try {
     val adepthub = new AdeptHub(baseDir, importsDir, "http://localhost:9000", cacheManager)
-
-    //  val resourceFile = new File("/Users/freekh/.ivy2/cache/org.javassist/javassist/ivy-3.18.0-GA.xml.original")
-    //  
-    //  val javacTargetVersion = 
-    //    for {
-    //      plugin <- scala.xml.XML.loadFile(resourceFile) \\ "plugins" \ "plugin"
-    //      if ((plugin \ "groupId").text == "org.apache.maven.plugins")
-    //      if ((plugin \ "artifactId").text == "maven-compiler-plugin")
-    //    } yield {
-    ////      println((plugin \ "groupId"))
-    //      (plugin \ "configuration" \  "target").text 
-    //    }
-    //  println(javacTargetVersion)
-
     //    adepthub.ivyInstall("org.javassist", "javassist", "3.18.0-GA", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
     val ivy = adepthub.defaultIvy
-    //  ivy.configure(new File("/Users/freekh/Projects/adepthub-ext/adepthub-ext/src/test/resources/sbt-plugin-ivy-settings.xml"))
+    //      ivy.configure(new File("/Users/freekh/Projects/adepthub-ext/adepthub-ext/src/test/resources/sbt-plugin-ivy-settings.xml"))
+    //    val org = "com.typesafe.play"
+    //    val name = "sbt-plugin"
+    //    val revision = "2.2.2"
     val org = "com.typesafe.akka"
-    val name = "akka-remote_2.10"
-    val revision = "2.2.1"
-    //
-    //  val org = "org.scala-sbt"
-    //  val name = "precompiled-2_9_3"
-    //  val revision = "0.13.0"
-
+    val name = "akka-actor_2.10"
+    val revision = "2.2.2"
     //    val ivyInstallResults = adepthub.ivyInstall(org, name, revision, Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty), ivy = ivy)
     //    if (ivyInstallResults.isLeft) println(ivyInstallResults)
-    //
-    //    val repository = new GitRepository(baseDir, RepositoryName(org))
-    //    val searchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
-    //    val inputContext = searchResults.map {
-    //      case searchResult: ImportSearchResult =>
-    //        val hash = VariantMetadata.fromVariant(searchResult.variant).hash
-    //        ResolutionResult(searchResult.variant.id, searchResult.repository, None, hash)
-    //      case searchResult: GitSearchResult =>
-    //        val hash = VariantMetadata.fromVariant(searchResult.variant).hash
-    //        ResolutionResult(searchResult.variant.id, searchResult.repository, Some(searchResult.commit), hash)
-    //      case searchResult: SearchResult =>
-    //        throw new Exception("Found a search result but expected either an import or a git search result: " + searchResult)
-    //    }
-    //    println(searchResults.filter(_.variant.id.value.startsWith("com.typesafe.akka/akka-remote")).mkString("\n"))
-    //
-    //    println(adepthub.offlineResolve(
-    //      Set(
-    //        Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/compile")), Set.empty, Set.empty),
-    //        Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/master")), Set.empty, Set.empty)),
-    //      importsDir = Some(importsDir),
-    //      inputContext = inputContext,
-    //      overrides = inputContext))
+    //    adepthub.contribute(importsDir)
+    val searchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
+    val inputContext = searchResults.map {
+      case searchResult: ImportSearchResult =>
+        val hash = VariantMetadata.fromVariant(searchResult.variant).hash
+        ResolutionResult(searchResult.variant.id, searchResult.repository, None, hash)
+      case searchResult: GitSearchResult =>
+        val hash = VariantMetadata.fromVariant(searchResult.variant).hash
+        ResolutionResult(searchResult.variant.id, searchResult.repository, Some(searchResult.commit), hash)
+      case searchResult: SearchResult =>
+        throw new Exception("Found a search result but expected either an import or a git search result: " + searchResult)
+    }
+    println(searchResults.filter(_.variant.id.value.startsWith("com.typesafe.akka/akka-remote")).mkString("\n"))
 
-    adepthub.contribute(importsDir, Set.empty)
+    println(adepthub.offlineResolve(
+      Set(
+        Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/compile")), Set.empty, Set.empty),
+        Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/master")), Set.empty, Set.empty)),
+      importsDir = Some(importsDir),
+      inputContext = inputContext,
+      overrides = inputContext))
+
+    //    adepthub.contribute(importsDir, Set.empty)
 
   } finally {
     cacheManager.shutdown()
@@ -256,73 +243,93 @@ class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: Cache
     else Left(createErrorReport(requirements, inputContext, overrides, overriddenContext, result))
   }
 
-  def contribute(importsDir: File, excludes: Set[Regex]) = {
-    def walkTree(file: File): Iterable[File] = {
-      val children = new Iterable[File] {
-        def iterator = if (file.isDirectory) file.listFiles.iterator else Iterator.empty
+  def walkTree(file: File): Iterable[File] = {
+    val children = new Iterable[File] {
+      def iterator = if (file.isDirectory) file.listFiles.iterator else Iterator.empty
+    }
+    Seq(file) ++: children.flatMap(walkTree(_))
+  }
+  def getZipEntry(file: File, baseDir: File) = {
+    new ZipEntry(file.getAbsolutePath().replace(baseDir.getAbsolutePath(), ""))
+  }
+  def compress() = {
+    val zipFile = File.createTempFile("adept-", "-import.zip")
+    logger.debug("Compressing to: " + zipFile.getAbsolutePath)
+    val output = new FileOutputStream(zipFile)
+    val zipOutput = new ZipOutputStream(output)
+    val BufferSize = 4096 //random number
+    var bytes = new Array[Byte](BufferSize)
+    try {
+      walkTree(importsDir).filter(_.isFile).foreach { file =>
+        val zipEntry = getZipEntry(file, importsDir)
+        val is = new FileInputStream(file)
+        try {
+          var bytesRead = is.read(bytes)
+          zipOutput.putNextEntry(zipEntry)
+          while (bytesRead != -1) {
+            zipOutput.write(bytes, 0, bytesRead)
+            bytesRead = is.read(bytes)
+          }
+        } finally {
+          is.close()
+        }
       }
-      Seq(file) ++: children.flatMap(walkTree(_))
+      zipFile
+    } finally {
+      zipOutput.finish()
+      output.close()
+      zipOutput.close()
     }
-    def getZipEntry(file: File, baseDir: File) = {
-      new ZipEntry(file.getAbsolutePath().replace(baseDir.getAbsolutePath(), ""))
-    }
-    def compress() = {
-      val zipFile = File.createTempFile("adept-", "-import.zip")
-      logger.debug("Compressing to: " + zipFile.getAbsolutePath)
-      val output = new FileOutputStream(zipFile)
-      val zipOutput = new ZipOutputStream(output)
-      val BufferSize = 4096 //random number
-      var bytes = new Array[Byte](BufferSize)
-      try {
-        walkTree(importsDir).filter(_.isFile).foreach { file =>
-          println("compressing: " + file.getAbsolutePath)
+  }
 
-          val zipEntry = getZipEntry(file, importsDir)
-          val is = new FileInputStream(file)
-          try {
-            var bytesRead = is.read(bytes)
-            zipOutput.putNextEntry(zipEntry)
-            while (bytesRead != -1) {
-              zipOutput.write(bytes, 0, bytesRead)
-              bytesRead = is.read(bytes)
-            }
-          } finally {
-            is.close()
+  def sendFile(file: File) = {
+    val requestBuilder = RequestBuilder.post()
+    requestBuilder.setUri(url + "/api/ivy/import")
+    val multipartBuilder = MultipartEntityBuilder.create()
+    multipartBuilder.setMode(HttpMultipartMode.STRICT)
+    multipartBuilder.addBinaryBody("contribution-zipped-file", file)
+    val entity = multipartBuilder.build()
+    requestBuilder.setEntity(entity)
+    val httpClientBuilder = HttpClientBuilder.create()
+    val httpClient = httpClientBuilder.build()
+    try {
+      println("execute")
+      val response = httpClient.execute(requestBuilder.build())
+      try {
+        if (response.getStatusLine().getStatusCode() == 200) {
+          val jsonString = io.Source.fromInputStream(response.getEntity().getContent()).getLines.mkString("\n")
+          Json.fromJson[Seq[ContributionResult]](Json.parse(jsonString)).asEither match {
+            case Left(errors) =>
+              logger.debug(errors.mkString(","))
+              throw new Exception("Could not parse contribution from AdeptHub! Aborting...")
+            case Right(results) =>
+              results.foreach { result =>
+                val repository = new GitRepository(baseDir, result.repository)
+                if (!repository.exists) {
+                  if (result.locations.size > 1) logger.warn("Ignoring locations: " + result.locations.tail)
+                  val uri = result.locations.head
+                  repository.clone(uri, passphrase, progress)
+                } else if (repository.exists) {
+                  result.locations.foreach { location =>
+                    repository.addRemoteUri(GitRepository.DefaultRemote, location)
+                  }
+                  repository.pull(GitRepository.DefaultRemote, GitRepository.DefaultBranchName, passphrase)
+                } else {
+                  logger.warn("Ignoring " + result)
+                }
+              }
           }
         }
-        zipFile
       } finally {
-        zipOutput.finish()
-        output.close()
-        zipOutput.close()
-      }
-    }
-
-    def sendFile(file: File) = {
-
-      val requestBuilder = RequestBuilder.post()
-      requestBuilder.setUri("http://localhost:9000/api/ivy/import")
-//      requestBuilder.addHeader("Accepts", "application/json")
-
-      val multipartBuilder = MultipartEntityBuilder.create()
-      multipartBuilder.setMode(HttpMultipartMode.STRICT)
-      multipartBuilder.addBinaryBody("contribution-zipped-file", file)
-      val entity = multipartBuilder.build()
-      requestBuilder.setEntity(entity)
-      val httpClientBuilder = HttpClientBuilder.create()
-      val httpClient = httpClientBuilder.build()
-      try {
-        val response = httpClient.execute(requestBuilder.build())
-        println(response.getStatusLine())
-        println(io.Source.fromInputStream(response.getEntity().getContent()).getLines.mkString("\n"))
-        val context = ???
-        val pullResult: Either[_, _] = pullContext(context)
-        useContributedReposiotories(pullResult, lockfile)
         response.close()
-      } finally {
-        httpClient.close()
       }
+    } finally {
+      httpClient.close()
     }
+  }
+
+  def contribute(importsDir: File) = {
+
     sendFile(compress())
     //ivy install akka-actor 2.2.2
     //contribute 

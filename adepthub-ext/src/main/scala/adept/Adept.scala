@@ -15,7 +15,6 @@ import org.eclipse.jgit.lib.TextProgressMonitor
 import adept.repository.AttributeConstraintFilter
 import adept.repository.Repository
 
-
 class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String] = None, progress: ProgressMonitor = new TextProgressMonitor) extends Logging {
   
   private[adept] def matches(term: String, id: Id) = {

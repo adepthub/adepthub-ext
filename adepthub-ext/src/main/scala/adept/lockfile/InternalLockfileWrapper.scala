@@ -15,12 +15,12 @@ private[adept] object InternalLockfileWrapper { //All of these visibility limita
     lockfile.artifacts.asScala
   }
 
-  def create(requirements: Set[LockfileRequirement], variants: Set[LockfileVariant], artifacts:Set[LockfileArtifact]) = {
+  def create(requirements: Set[LockfileRequirement], variants: Set[LockfileContext], artifacts:Set[LockfileArtifact]) = {
     new Lockfile(requirements.asJava, variants.asJava, artifacts.asJava)
   }
 
-  def newVariant(info: String, id: Id, repository: RepositoryName, locations: java.util.Set[RepositoryLocation], commit: Commit, hash: VariantHash) = {
-    new LockfileVariant(info, id, repository, locations, commit, hash)
+  def newContext(info: String, id: Id, repository: RepositoryName, locations: java.util.Set[RepositoryLocation], commit: Commit, hash: VariantHash) = {
+    new LockfileContext(info, id, repository, locations, commit, hash)
   }
   
   

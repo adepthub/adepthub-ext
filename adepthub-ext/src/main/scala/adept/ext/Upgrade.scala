@@ -81,7 +81,7 @@ object Upgrade extends Logging {
               }
             }.getOrElse(throw new Exception("Expected to find one (any) hash, but at least: " + variant + " in " + (id, repository.dir.getAbsolutePath(), commit)))
           }
-          InternalLockfileWrapper.newVariant(lockfileVariant.info, lockfileVariant.id, lockfileVariant.repository, lockfileVariant.locations, lockfileVariant.commit, InternalLockfileWrapper.javaVariant(newVariant))
+          InternalLockfileWrapper.newContext(lockfileVariant.info, lockfileVariant.id, lockfileVariant.repository, lockfileVariant.locations, lockfileVariant.commit, InternalLockfileWrapper.javaVariant(newVariant))
         }
       }
     }

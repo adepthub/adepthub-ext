@@ -27,7 +27,10 @@ class ScalaBinaryVersionConverterTest extends FunSuite with Matchers {
       localFiles = Map.empty,
       artifacts = Set.empty,
       extendsIds = Set.empty,
-      excludeRules = Map.empty))
+      excludeRules = Map.empty,
+      info = None, 
+      resourceFile = None,
+      resourceOriginalFile = None))
 
     result.variant.id shouldEqual Id("test/thing")
     result.variant.requirements shouldEqual Set(Requirement(scalaLibMaster, Set(Constraint(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))), Set.empty), Requirement(scalaLibCompile, Set(Constraint(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))), Set.empty))
@@ -45,7 +48,10 @@ class ScalaBinaryVersionConverterTest extends FunSuite with Matchers {
       localFiles = Map.empty,
       artifacts = Set.empty,
       extendsIds = Set.empty,
-      excludeRules = Map.empty))
+      excludeRules = Map.empty,
+      info = None, 
+      resourceFile = None,
+      resourceOriginalFile = None))
 
     result.variant.id shouldEqual Id("test/thing/config/compile")
     result.variant.requirements shouldEqual Set(Requirement(scalaLibCompile, Set(Constraint(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))), Set.empty), Requirement(Id("foo/config/compile"), Set.empty, Set.empty), Requirement(Id("zoo/config/compile"), Set.empty, Set.empty))

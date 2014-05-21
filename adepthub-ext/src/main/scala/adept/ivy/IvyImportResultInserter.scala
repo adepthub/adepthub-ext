@@ -139,7 +139,7 @@ object IvyImportResultInserter extends Logging {
           ivyResultsByVersions.get((targetName, targetId, targetVersion)) match {
             case Some(foundVersionedResults) =>
               if (foundVersionedResults.size > 1) {
-                throw new Exception("Found more than one variant matching version: " + (targetName, targetId, targetVersion) + ":\n"+ foundVersionedResults.mkString("\n"))
+                throw new Exception("Found more than one variant matching version: " + (targetName, targetId, targetVersion) + ":\n" + foundVersionedResults.mkString("\n"))
               } else if (foundVersionedResults.size < 1) {
                 errors += VersionNotFoundException(targetName, targetId, targetVersion)
               } else {
@@ -207,6 +207,45 @@ object IvyImportResultInserter extends Logging {
         }
         progress.update(1)
         completedResults
+    }
+    progress.endTask()
+
+    progress.beginTask("Copying ivy files and writing info", grouped.size)
+    def copy(src: File, dest: File) = {
+      import java.io._
+      var fos: FileOutputStream = null
+      var fis: FileInputStream = null
+      try {
+        dest.getParentFile.mkdirs()
+        fos = new FileOutputStream(dest)
+        fis = new FileInputStream(src)
+        fos.getChannel().transferFrom(fis.getChannel(), 0, Long.MaxValue);
+      } finally {
+        if (fos != null)
+          fos.close();
+        if (fis != null)
+          fis.close();
+      }
+    }
+    grouped.par.foreach { //NOTICE .par TODO: same as above (IO vs CPU)
+      case (name, results) =>
+        val repository = new Repository(importDir, name)
+        results.foreach { result =>
+          val id = result.variant.id
+          val hash = VariantMetadata.fromVariant(result.variant).hash
+          result.info.foreach { info =>
+            info.write(id, hash, repository)
+          }
+          result.resourceFile.foreach { file =>
+            val dest = new File(repository.getVariantHashDir(id, hash), file.getName) 
+            copy(file, dest)
+          }
+          result.resourceOriginalFile.foreach { file =>
+            val dest = new File(repository.getVariantHashDir(id, hash), file.getName) 
+            copy(file, dest)
+          }
+        }
+        progress.update(1)
     }
     progress.endTask()
 

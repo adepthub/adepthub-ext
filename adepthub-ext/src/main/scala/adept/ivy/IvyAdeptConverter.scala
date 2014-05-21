@@ -43,6 +43,11 @@ import adept.repository.metadata.VariantMetadata
 import org.apache.ivy.plugins.parser.xml.XmlModuleDescriptorParser
 import org.apache.ivy.plugins.parser.m2.PomModuleDescriptorParser
 import org.apache.ivy.core.retrieve.RetrieveOptions
+import adept.repository.metadata.LicenseInfo
+import adept.repository.metadata.VcsInfo
+import adept.repository.metadata.InfoMetadata
+import org.apache.ivy.plugins.resolver.URLResolver
+import org.apache.ivy.plugins.resolver.ChainResolver
 
 class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[String] = Set("optional"), skippableConf: Option[Set[String]] = Some(Set("javadoc", "sources")), allowFailedArtifactTypes: Set[String] = Set("sources", "javadoc", "doc", "src")) extends Logging {
   import adept.ext.AttributeDefaults.{ ModuleHashAttribute, VersionAttribute }
@@ -240,25 +245,6 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
               resolveReport
             }
 
-            //            val cache = ivy.getResolveEngine.getSettings().getResolutionCacheManager()
-            //file:/Users/freekh/.ivy2/cache/org.javassist/javassist/ivy-3.18.0-GA.xml.original
-            if (module != null && module.getResource() != null) {
-
-              val LocalDescriptorResourceParser = "file:(.*?)".r
-              val resourceFile = module.getResource().getName() match {
-                case LocalDescriptorResourceParser(filename) => new File(filename)
-              }
-
-              //TODO: add to info
-              if (resourceFile.isFile()) {
-                //TODO: use to check for scm 
-                println(resourceFile.getAbsolutePath())
-              }
-              println(module.getDescription())
-              println(module.getHomePage())
-              println(module.getLicenses.toList.map(l => l.getName() -> l.getUrl()))
-              println(module.getPublicationDate())
-            }
             val current = createIvyResult(workingNode)
             var allResults = current.right.getOrElse(Set.empty[IvyImportResult])
             var errors = current.left.getOrElse(Set.empty[IvyImportError])
@@ -538,11 +524,74 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
           repository = ivyIdAsRepositoryName(mrid.getModuleId),
           versionInfo = targetVersionInfo,
           excludeRules = excludeRules,
-          extendsIds = extendsIds)
+          extendsIds = extendsIds,
+          info = None,
+          resourceFile = None,
+          resourceOriginalFile = None)
       }.toSet
 
     if (errors.nonEmpty) Left(errors)
     else {
+      //            val cache = ivy.getResolveEngine.getSettings().getResolutionCacheManager()
+      //file:/Users/freekh/.ivy2/cache/org.javassist/javassist/ivy-3.18.0-GA.xml.original
+      val moduleDescriptor = parentNode.getDescriptor()
+      val (info, resourceFile, resourceOriginalFile) = if (moduleDescriptor != null) {
+        val other = {
+          ivy.getSettings().getResolvers().asScala.foldLeft(Map.empty[String, List[String]]) { (current, resolver) =>
+            resolver match {
+              case resolver: URLResolver =>
+                val formerIvy = current.getOrElse("ivy-patterns", List.empty[String])
+                val formerArtifact = current.getOrElse("artifact-patterns", List.empty[String])
+                val currentIvy = resolver.getIvyPatterns().asScala.toList.map { case p: String => p }
+                val currentArtifact = resolver.getArtifactPatterns().asScala.toList.map { case p: String => p }
+                current +
+                  ("ivy-patterns" -> (formerIvy ++ currentIvy).distinct) +
+                  ("artifact-patterns" -> (formerArtifact ++ currentArtifact).distinct)
+              case _ => current
+            }
+          }
+        }
+        val LocalDescriptorResourceParser = "file:(.*?)".r
+        val (resourceFile, (resourceOriginalFile, vcsInfo)) =
+          if (moduleDescriptor.getResource() != null) {
+
+            moduleDescriptor.getResource().getName() match {
+              case LocalDescriptorResourceParser(filename) =>
+                val resourceFile = new File(filename)
+                val r1 = if (resourceFile.isFile()) Some(resourceFile) else None
+                val resourceOriginalFile = new File(resourceFile.getParentFile, resourceFile.getName + ".original")
+                val (r2, vcs) = if (resourceOriginalFile.isFile) {
+                  try {
+                    val xmlFile = XML.loadFile(resourceOriginalFile)
+                    val vcs = (xmlFile \\ "scm").map { scmNode =>
+                      VcsInfo(connection = Some((scmNode \ "connection").text),
+                        url = Some((scmNode \ "url").text))
+                    }.headOption
+                    Some(resourceOriginalFile) -> vcs
+                  } catch {
+                    case e: Exception =>
+                      Some(resourceOriginalFile) -> None
+                  }
+                } else {
+                  None -> None
+                }
+                r1 -> (r2, vcs)
+              case _ => None -> (None, None)
+            }
+          } else {
+            None -> (None, None)
+          }
+        (Some(InfoMetadata(
+          description = Option(moduleDescriptor.getDescription()),
+          homePage = Option(moduleDescriptor.getHomePage()),
+          publicationDate = Option(moduleDescriptor.getPublicationDate()),
+          licenses = Option(moduleDescriptor.getLicenses).toList.flatMap(_.toList.map(l => LicenseInfo(name = Some(l.getName()), url = Some(l.getUrl())))),
+          vcs = vcsInfo,
+          other = other)), resourceFile, resourceOriginalFile)
+      } else {
+        (None, None, None)
+      }
+
       val allResults = mergableResults +
         IvyImportResult( //<-- adding main configuration to make sure that there is not 2 variants with different "configurations" 
           variant = Variant(id, attributes = attributes),
@@ -551,7 +600,10 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
           repository = ivyIdAsRepositoryName(mrid.getModuleId),
           versionInfo = Set.empty,
           excludeRules = Map.empty,
-          extendsIds = Set.empty)
+          extendsIds = Set.empty,
+          info = info,
+          resourceFile = resourceFile,
+          resourceOriginalFile = resourceOriginalFile)
 
       val allVariants = allResults.map(_.variant)
       val modulurisedVariants: Map[VariantHash, Variant] = Module.modularise(id, allVariants)

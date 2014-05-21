@@ -129,7 +129,7 @@ object VersionRank extends Logging {
     }
   }
 
-  private[adept] def getSortedByVersions(variants: Seq[Variant]): Seq[VariantHash] = {
+  def getSortedByVersions(variants: Seq[Variant]): Seq[VariantHash] = {
     val hashes = variants.sortBy(getVersion).reverse.map { variant =>
       VariantMetadata.fromVariant(variant).hash
     }
