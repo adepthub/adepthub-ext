@@ -14,6 +14,7 @@ import adept.repository.metadata.RankingMetadata
 import org.eclipse.jgit.lib.TextProgressMonitor
 import adept.repository.AttributeConstraintFilter
 import adept.repository.Repository
+import adepthub.models.GitSearchResult
 
 class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String] = None, progress: ProgressMonitor = new TextProgressMonitor) extends Logging {
   
@@ -27,9 +28,9 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
       val commit = repository.getHead
       VariantMetadata.listIds(repository, commit).flatMap { id =>
         if (matches(term, id)) {
-          val locations: RepositoryLocations = repository.getRemoteUri(GitRepository.DefaultRemote).map { location =>
-            RepositoryLocations(repository.name, Set(location))
-          }.getOrElse(RepositoryLocations(repository.name, Set.empty))
+          val locations = repository.getRemoteUri(GitRepository.DefaultRemote).map { location =>
+            Seq(location)
+          }.getOrElse(Seq.empty)
 
           val variants = RankingMetadata.listRankIds(id, repository, commit).flatMap { rankId =>
             val ranking = RankingMetadata.read(id, rankId, repository, commit)
