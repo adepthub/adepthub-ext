@@ -38,7 +38,7 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
               VariantMetadata.read(id, hash, repository, commit).map(_.toVariant(id))
                 .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash, repository.dir.getAbsolutePath, commit)))
             }.find { variant =>
-              constraints.nonEmpty ||
+              constraints.isEmpty ||
                 AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
             }.map{
               _ -> rankId
