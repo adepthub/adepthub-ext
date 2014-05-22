@@ -26,6 +26,7 @@ import adept.repository.GitRepository
 import adept.repository.metadata.VariantMetadata
 import adept.repository.metadata.RankingMetadata
 import adept.repository.metadata.ResolutionResultsMetadata
+import adept.repository.metadata.RepositoryLocationsMetadata
 import adept.ivy.IvyUtils
 import adept.ivy.IvyConstants
 import adept.ivy.IvyAdeptConverter
@@ -58,10 +59,10 @@ import org.apache.http.client.methods.RequestBuilder
 import play.api.libs.json.Json
 import org.apache.http.StatusLine
 import _root_.adepthub.models.ContributionResult
-import adepthub.models.SearchResult
-import adepthub.models.ImportSearchResult
+import adepthub.models._
+import org.apache.http.entity.StringEntity
 import adepthub.models.GitSearchResult
-
+import scala.concurrent.Await
 
 case class VariantInfo(id: Id, hash: VariantHash, repository: RepositoryName, commit: Commit, locations: RepositoryLocations)
 
@@ -73,7 +74,7 @@ package object Implicits {
   }
 }
 
-object Main extends App { //TODO: remove
+object Main extends App with Logging { //TODO: remove
   val baseDir = new File(System.getProperty("user.home") + "/.adept")
   val importsDir = new File("imports")
 
@@ -87,12 +88,12 @@ object Main extends App { //TODO: remove
     //    val name = "sbt-plugin"
     //    val revision = "2.2.2"
     val org = "com.typesafe.akka"
-    val name = "akka-actor_2.10"
+    val name = "akka-remote_2.10"
     val revision = "2.2.2"
     //    val ivyInstallResults = adepthub.ivyInstall(org, name, revision, Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty), ivy = ivy)
-    //    if (ivyInstallResults.isLeft) println(ivyInstallResults)
     //    adepthub.contribute(importsDir)
     val searchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
+    println(searchResults.mkString("\n"))
     val inputContext = searchResults.map {
       case searchResult: ImportSearchResult =>
         val hash = VariantMetadata.fromVariant(searchResult.variant).hash
@@ -103,7 +104,13 @@ object Main extends App { //TODO: remove
       case searchResult: SearchResult =>
         throw new Exception("Found a search result but expected either an import or a git search result: " + searchResult)
     }
-    println(searchResults.filter(_.variant.id.value.startsWith("com.typesafe.akka/akka-remote")).mkString("\n"))
+    val passphrase = None
+    val progress = new TextProgressMonitor
+    searchResults.foreach {
+      case result: GitSearchResult if !result.isOffline =>
+        adepthub.get(result.repository, result.locations.toSet)
+      case _ => //pass
+    }
 
     println(adepthub.offlineResolve(
       Set(
@@ -124,6 +131,20 @@ object Main extends App { //TODO: remove
 class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: CacheManager, passphrase: Option[String] = None, onlyOnline: Boolean = false, progress: ProgressMonitor = new TextProgressMonitor) extends Logging { //TODO: make logging configurable
   val adept = new Adept(baseDir, cacheManager, passphrase, progress)
   def defaultIvy = IvyUtils.load(ivyLogger = IvyUtils.warnIvyLogger)
+
+  def get(name: RepositoryName, locations: Set[String]) = {
+    val repository = new GitRepository(baseDir, name)
+    if (locations.size > 1) logger.warn("Ignoring locations: " + locations.tail)
+    val uri = locations.head
+    if (!repository.exists) {
+      println("cloning from: " + uri + " to :" + repository.dir.getAbsolutePath())
+      repository.clone(uri, passphrase, progress)
+    } else { //if (repository.exists) {
+      println("pulling from: " + uri + " to: " + repository.dir.getAbsolutePath())
+      repository.addRemoteUri(GitRepository.DefaultRemote, uri)
+      repository.pull(GitRepository.DefaultRemote, GitRepository.DefaultBranchName, passphrase)
+    }
+  }
 
   def ivyInstall(org: String, name: String, revision: String, configurations: Set[String], lockfile: Lockfile, ivy: Ivy = defaultIvy, useScalaConvert: Boolean = true, forceImport: Boolean = false) = {
     val id = ScalaBinaryVersionConverter.extractId(IvyUtils.ivyIdAsId(org, name))
@@ -152,23 +173,54 @@ class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: Cache
               ivyResult.variant
             }
           }
-
-          //offlineResolve(requirements, variants, repositories)
-          Right()
-        case Left(errors) => Left(errors)
+        case Left(errors) => throw new Exception("Ivy import failed: " + errors)
       }
-    } else {
-      println("Skipping ivy import. Found variants: " + foundMatchingVariants.map(_.variant))
-      Right()
     }
   }
 
-  def onlineSearch(term: String): Future[Set[SearchResult]] = {
-    ???
+  def onlineSearch(term: String, constraints: Set[Constraint], executionContext: ExecutionContext): Future[Set[GitSearchResult]] = {
+    Future {
+      ///TODO: future me, I present my sincere excuses for this code: http client sucks! Rewrite this!
+      val postRequest = new HttpPost(url + "/api/search")
+      postRequest.addHeader("Content-Type", "application/json")
+      val jsonRequest = Json.prettyPrint(Json.toJson(SearchRequest(term, constraints)))
+      val entity = new StringEntity(jsonRequest)
+      postRequest.setEntity(entity)
+      val httpClientBuilder = HttpClientBuilder.create()
+      val httpClient = httpClientBuilder.build()
+      try {
+        val response = httpClient.execute(postRequest)
+        try {
+          val status = response.getStatusLine()
+          val responseString = io.Source.fromInputStream(response.getEntity().getContent()).getLines.mkString("\n")
+
+          if (status.getStatusCode() == 200) {
+            val jsonString = responseString
+            Json.fromJson[Set[GitSearchResult]](Json.parse(jsonString)).asEither match {
+              case Right(results) =>
+                results.map(_.copy(isOffline = false))
+              case Left(error) =>
+                throw new Exception("Could not parse AdeptHub response as search results. Got:\n" + responseString)
+            }
+          } else {
+            throw new Exception("AdeptHub returned with: " + status + ":\n" + responseString)
+          }
+        } finally {
+          response.close()
+        }
+      } finally {
+        httpClient.close()
+      }
+    }(executionContext)
   }
 
-  def mergeSearchResults(offline: Set[SearchResult], online: Future[Set[SearchResult]], onlineTimeout: FiniteDuration): Set[SearchResult] = {
-    ???
+  def mergeSearchResults(offline: Set[GitSearchResult], online: Set[GitSearchResult]): Set[SearchResult] = {
+    val offlineRepoCommit = offline.map { result =>
+      result.repository -> result.commit
+    }
+    offline ++ online.filter { result =>
+      !offlineRepoCommit(result.repository -> result.commit)
+    }
   }
 
   val defaultTimeout = {
@@ -192,12 +244,14 @@ class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: Cache
               VariantMetadata.read(id, hash, repository, checkHash = true).map(_.toVariant(id))
                 .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash, repository.dir.getAbsolutePath)))
             }.find { variant =>
-              AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
-            }
+              constraints.nonEmpty ||
+                AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
+            }.map(_ -> rankId)
           }
 
-          variants.map { variant =>
-            ImportSearchResult(variant, repository.name)
+          variants.map {
+            case (variant, rankId) =>
+              ImportSearchResult(variant, rankId, repository.name)
           }
         } else {
           Set.empty[ImportSearchResult]
@@ -215,9 +269,9 @@ class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: Cache
   }
 
   def search(term: String, constraints: Set[Constraint] = Set.empty, onlineTimeout: FiniteDuration = defaultTimeout): Set[SearchResult] = {
-    //    mergeSearchResults(offline = offlineSearch(term), online = onlineSearch(term), onlineTimeout = onlineTimeout)
-    logger.warn("online search not... online yet .... ")
-    adept.search(term, constraints) ++ searchImport(term, constraints)
+    val onlineResults = onlineSearch(term, constraints, defaultExecutionContext)
+    val offlineResults = adept.search(term, constraints)
+    mergeSearchResults(offline = offlineResults, online = Await.result(onlineResults, onlineTimeout))
   }
 
   def createErrorReport(requirements: Set[Requirement], resolutionResults: Set[ResolutionResult], overrides: Set[ResolutionResult], transitiveContext: Set[ResolutionResult], result: ResolveResult) = {
@@ -229,6 +283,23 @@ class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: Cache
     val overriddenInputContext = GitLoader.applyOverrides(inputContext, overrides)
     val context = GitLoader.computeTransitiveContext(baseDir, overriddenInputContext, importsDir)
     val overriddenContext = GitLoader.applyOverrides(context, overrides)
+    val contextRequiringPulls = overriddenContext.flatMap { v =>
+      v.commit match {
+        case Some(commit) =>
+          val gitRepository = new GitRepository(baseDir, v.repository)
+          if (gitRepository.exists && gitRepository.hasCommit(commit))
+            None
+          else {
+            Some(v)
+          }
+        case None =>
+          None
+      }
+    }
+    val transitiveLocations = GitLoader.computeTransitiveLocations(baseDir, overriddenInputContext, contextRequiringPulls, importsDir)
+    transitiveLocations.foreach { locations =>
+      get(locations.name, locations.uris)
+    }
 
     val (major, minor) = JavaVersions.getMajorMinorVersion(this.getClass)
     val providedVariants = Set("", "/config/runtime", "/config/provided", "/config/system", "/config/default", "/config/compile", "/config/master").map { config =>
@@ -283,6 +354,7 @@ class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: Cache
   }
 
   def sendFile(file: File) = {
+    ///TODO: future me, I present my sincere excuses for this code: http client sucks!
     val requestBuilder = RequestBuilder.post()
     requestBuilder.setUri(url + "/api/ivy/import")
     val multipartBuilder = MultipartEntityBuilder.create()
@@ -293,11 +365,14 @@ class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: Cache
     val httpClientBuilder = HttpClientBuilder.create()
     val httpClient = httpClientBuilder.build()
     try {
-      println("execute")
+      logger.info("Uploading contribution to AdeptHub - this might take a while...")
       val response = httpClient.execute(requestBuilder.build())
       try {
-        if (response.getStatusLine().getStatusCode() == 200) {
-          val jsonString = io.Source.fromInputStream(response.getEntity().getContent()).getLines.mkString("\n")
+        val status = response.getStatusLine()
+        val responseString = io.Source.fromInputStream(response.getEntity().getContent()).getLines.mkString("\n")
+
+        if (status.getStatusCode() == 200) {
+          val jsonString = responseString
           Json.fromJson[Seq[ContributionResult]](Json.parse(jsonString)).asEither match {
             case Left(errors) =>
               logger.debug(errors.mkString(","))
@@ -319,6 +394,8 @@ class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: Cache
                 }
               }
           }
+        } else {
+          throw new Exception("AdeptHub returned with: " + status + ":\n" + responseString)
         }
       } finally {
         response.close()
@@ -329,12 +406,7 @@ class AdeptHub(baseDir: File, importsDir: File, url: String, cacheManager: Cache
   }
 
   def contribute(importsDir: File) = {
-
     sendFile(compress())
-    //ivy install akka-actor 2.2.2
-    //contribute 
-    //ivy install akka-remote 2.2.2 (uses contribute)
-    //akka-actor install 2.2.1
   }
 
   //

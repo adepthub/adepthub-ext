@@ -17,7 +17,7 @@ import adept.repository.Repository
 import adepthub.models.GitSearchResult
 
 class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String] = None, progress: ProgressMonitor = new TextProgressMonitor) extends Logging {
-  
+
   private[adept] def matches(term: String, id: Id) = {
     (id.value + Id.Sep).contains(term)
   }
@@ -31,7 +31,6 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
           val locations = repository.getRemoteUri(GitRepository.DefaultRemote).map { location =>
             Seq(location)
           }.getOrElse(Seq.empty)
-
           val variants = RankingMetadata.listRankIds(id, repository, commit).flatMap { rankId =>
             val ranking = RankingMetadata.read(id, rankId, repository, commit)
               .getOrElse(throw new Exception("Could not read rank id: " + (id, rankId, repository.dir.getAbsolutePath, commit)))
@@ -39,12 +38,15 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
               VariantMetadata.read(id, hash, repository, commit).map(_.toVariant(id))
                 .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash, repository.dir.getAbsolutePath, commit)))
             }.find { variant =>
-              AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
+              constraints.nonEmpty ||
+                AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
+            }.map{
+              _ -> rankId
             }
           }
 
-          variants.map { variant =>
-            GitSearchResult(variant, repository.name, commit, locations, isOffline = true)
+          variants.map { case (variant, rankId) =>
+            GitSearchResult(variant, rankId, repository.name, commit, locations, isOffline = true)
           }
         } else {
           Set.empty[GitSearchResult]
@@ -54,7 +56,7 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
       Set.empty[GitSearchResult]
     }
   }
-  
+
   def search(term: String, constraints: Set[Constraint] = Set.empty): Set[GitSearchResult] = {
     Repository.listRepositories(baseDir).flatMap { name =>
       searchRepository(term, name, constraints)
