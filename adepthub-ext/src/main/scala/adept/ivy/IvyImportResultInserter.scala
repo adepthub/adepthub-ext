@@ -31,22 +31,6 @@ object IvyImportResultInserter extends Logging {
     val sortedVariants = VersionRank.getSortedByVersions(variants)
     Set(RankingMetadata(sortedVariants).write(id, rankId, repository)) -> Set.empty[File]
   }
-  //TODO: Remove
-  //  def getExistingResolutionResult(baseDir: File, ivyImportResult: IvyImportResult): Option[Set[ResolutionResult]] = {
-  //    val repository = new Repository(baseDir, ivyImportResult.repository)
-  //    if (repository.exists) {
-  //      val id = ivyImportResult.variant.id
-  //      val hash = VariantMetadata.fromVariant(ivyImportResult.variant).hash
-  //      for {
-  //        _ <- VariantMetadata.read(id, hash, repository, checkHash = true)
-  //        resolutionResultsMetadata <- ResolutionResultsMetadata.read(id, hash, repository)
-  //      } yield {
-  //        resolutionResultsMetadata.values.toSet
-  //      }
-  //    } else {
-  //      None //no repository => result does not exist
-  //    }
-  //  }
 
   /**
    *  Insert Ivy Import results (variants, resolution results, ...) into corresponding Adept repositories.

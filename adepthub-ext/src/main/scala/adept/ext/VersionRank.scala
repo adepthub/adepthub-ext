@@ -130,7 +130,9 @@ object VersionRank extends Logging {
   }
 
   def getSortedByVersions(variants: Seq[Variant]): Seq[VariantHash] = {
-    val hashes = variants.sortBy(getVersion).reverse.map { variant =>
+    val hashes = variants
+        .sortBy(VariantMetadata.fromVariant(_).hash.value) //we must sort these variants consistently, even if there are multiple with the same versions
+        .sortBy(getVersion).reverse.map { variant =>
       VariantMetadata.fromVariant(variant).hash
     }
     if (hashes.distinct != hashes) throw new Exception("Found multiple variants that are the same: " + variants) //TODO: do we need to be this strict?
