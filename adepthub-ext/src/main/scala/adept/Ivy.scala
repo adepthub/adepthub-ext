@@ -5,14 +5,13 @@ import adept.ivy.IvyUtils
 import adept.ivy.IvyAdeptConverter
 import adept.ivy.IvyImportResultInserter
 import adept.lockfile.Lockfile
-import org.apache.ivy.Ivy
 import org.eclipse.jgit.lib.ProgressMonitor
 import adept.resolution.models.Constraint
 import adept.ext.AttributeDefaults
 import adept.ivy.IvyConstants
 
 private[adept] object Ivy {
-  def ivyInstall(adept: Adept, adeptHub: AdeptHub, progress: ProgressMonitor)(org: String, name: String, revision: String, configurations: Set[String], lockfile: Lockfile, ivy: Ivy = adeptHub.defaultIvy, useScalaConvert: Boolean = true, forceImport: Boolean = false) = {
+  def ivyInstall(adept: Adept, adeptHub: AdeptHub, progress: ProgressMonitor)(org: String, name: String, revision: String, configurations: Set[String], lockfile: Lockfile, ivy: _root_.org.apache.ivy.Ivy = adeptHub.defaultIvy, useScalaConvert: Boolean = true, forceImport: Boolean = false) = {
     val id = ScalaBinaryVersionConverter.extractId(IvyUtils.ivyIdAsId(org, name))
     val repositoryName = IvyUtils.ivyIdAsRepositoryName(org)
     val foundMatchingVariants = adept.searchRepository(id.value, name = repositoryName, constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
