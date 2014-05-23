@@ -42,4 +42,4 @@ tmp
 # Test ivy tmp files:
 imports/**
 adepthub-ext/imports/**
-
+.ivy2-adept

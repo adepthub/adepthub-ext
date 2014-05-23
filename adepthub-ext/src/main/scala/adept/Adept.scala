@@ -16,6 +16,7 @@ import adept.repository.AttributeConstraintFilter
 import adept.repository.Repository
 import adepthub.models.GitSearchResult
 
+//TODO: move to adept-core
 class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String] = None, progress: ProgressMonitor = new TextProgressMonitor) extends Logging {
 
   private[adept] def matches(term: String, id: Id) = {

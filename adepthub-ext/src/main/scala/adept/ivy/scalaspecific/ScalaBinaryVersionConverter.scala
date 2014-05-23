@@ -1,6 +1,7 @@
 package adept.ivy.scalaspecific
 
 import adept.ivy.IvyImportResult
+import adept.resolution.models.Requirement
 import adept.resolution.models.Id
 import adept.repository.models.RankId
 import adept.repository.metadata.RankingMetadata
@@ -17,6 +18,13 @@ object ScalaBinaryVersionConverter extends Logging {
   val ScalaBinaryVersionRegex = """(.*)_(\d\..*?)(/.*)?""".r
 
   val ScalaBinaryVersionVersionExtractRegex = """^(\d*)\.(\d*)\.(\d*).*$""".r
+
+  def getRequirement(binaryVersion: String) = {
+    val constraints = Set(Constraint(AttributeDefaults.BinaryVersionAttribute, Set(binaryVersion)))
+    Set(
+      Requirement(Id("org.scala-lang/scala-library/config/compile"), constraints , Set.empty), 
+      Requirement(Id("org.scala-lang/scala-library/config/master"), constraints , Set.empty))
+  }
 
   def getScalaBinaryCompatibleVersion(version: Version) = {
     val versionString = version.value

@@ -65,115 +65,116 @@ import scala.concurrent.Await
 import adept.repository.metadata.ArtifactMetadata
 import adept.logging.JavaLogger
 
-object Main extends App with Logging { //TODO: remove
-  val baseDir = new File(System.getProperty("user.home") + "/.adept")
-  val importsDir = new File("imports")
-  val downloadTimeoutMinutes = 60
-  val scalaBinaryVersion = "2.10"
-  val cacheManager = CacheManager.create()
-  val maxArtifactDownloadRetries = 5
-
-  try {
-    val adepthub = new AdeptHub(baseDir, importsDir, "http://localhost:9000", scalaBinaryVersion, cacheManager)
-
-    val javaLogger = new JavaLogger {
-      override def debug(message: String) = logger.debug(message)
-      override def info(message: String) = logger.info(message)
-      override def warn(message: String) = logger.warn(message)
-      override def error(message: String) = logger.error(message)
-      override def error(message: String, exception: Exception) = logger.error(message, exception)
-    }
-    val progress = new TextProgressMonitor
-    val javaProgress = new adept.progress.ProgressMonitor {
-      override def beginTask(status: String, max: Int) = progress.beginTask(status, max)
-      override def update(i: Int) = progress.update(i)
-      override def endTask() = progress.endTask()
-    }
-
-    //    adepthub.ivyInstall("org.javassist", "javassist", "3.18.0-GA", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
-    val ivy = adepthub.defaultIvy
-    //      ivy.configure(new File("/Users/freekh/Projects/adepthub-ext/adepthub-ext/src/test/resources/sbt-plugin-ivy-settings.xml"))
-    //    val org = "com.typesafe.play"
-    //    val name = "sbt-plugin"
-    //    val revision = "2.2.2"
-        val org = "com.typesafe.slick"
-    val name = "slick_" + scalaBinaryVersion
-    val revision = "2.0.0"
-    adepthub.ivyImport(org, name, revision, Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty), ivy = ivy) match {
-      case Right(true) => adepthub.contribute()
-      case Right(false) =>
-    }
-    val searchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
-    val newInputContext = searchResults.map {
-      case searchResult: ImportSearchResult =>
-        val hash = VariantMetadata.fromVariant(searchResult.variant).hash
-        ResolutionResult(searchResult.variant.id, searchResult.repository, None, hash)
-      case searchResult: GitSearchResult =>
-        val hash = VariantMetadata.fromVariant(searchResult.variant).hash
-        ResolutionResult(searchResult.variant.id, searchResult.repository, Some(searchResult.commit), hash)
-      case searchResult: SearchResult =>
-        throw new Exception("Found a search result but expected either an import or a git search result: " + searchResult)
-    }
-    val passphrase = None
-    searchResults.foreach {
-      case result: GitSearchResult if !result.isOffline =>
-        adepthub.get(result.repository, result.locations.toSet)
-      case _ => //pass
-    }
-    val newReqs = Set(
-      Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/compile")), Set.empty, Set.empty),
-      Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/master")), Set.empty, Set.empty))
-
-    val lockfileFile = new File("test.adept")
-    val lockfile = {
-      if (lockfileFile.exists())
-        Lockfile.read(lockfileFile)
-      else
-        InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)
-    }
-
-    val newReqIds = newReqs.map(_.id)
-    val requirements = newReqs ++ (InternalLockfileWrapper.requirements(lockfile).filter { req =>
-      //remove old reqs which are overwritten
-      !newReqIds(req.id)
-    })
-    val newContextIds = newInputContext.map(_.id)
-    val inputContext = newInputContext ++ (InternalLockfileWrapper.context(lockfile).filter { c =>
-      //remove old reqs which are overwritten
-      !newContextIds(c.id)
-    })
-    //get lockfile locations
-    InternalLockfileWrapper.locations(lockfile).foreach {
-      case (name, id, maybeCommit, locations) =>
-        if (!newReqIds(id)) {
-          maybeCommit match {
-            case Some(commit) =>
-              val repository = new GitRepository(baseDir, name)
-              if (!(repository.exists && repository.hasCommit(commit))) {
-                adepthub.get(name, locations)
-              }
-            case None => //pass
-          }
-        }
-    }
-
-    adepthub.offlineResolve(
-      requirements = requirements,
-      importsDir = Some(importsDir),
-      inputContext = inputContext,
-      overrides = inputContext) match {
-        case Right((resolveResult, lockfile)) =>
-          println(resolveResult)
-          adepthub.writeLockfile(lockfile, lockfileFile)
-          lockfile.download(baseDir, downloadTimeoutMinutes, java.util.concurrent.TimeUnit.MINUTES, maxArtifactDownloadRetries, javaLogger, javaProgress)
-        case Left(error) =>
-          println(error)
-      }
-  } finally {
-    cacheManager.shutdown()
-  }
-
-}
+//object Main extends App with Logging { //TODO: remove
+//  val baseDir = new File(System.getProperty("user.home") + "/.adept")
+//  val importsDir = new File("imports")
+//  val downloadTimeoutMinutes = 60
+//  val scalaBinaryVersion = "2.10"
+//  val cacheManager = CacheManager.create()
+//  val maxArtifactDownloadRetries = 5
+//
+//  try {
+//    val adepthub = new AdeptHub(baseDir, importsDir, "http://localhost:9000", scalaBinaryVersion, cacheManager)
+//
+//    val javaLogger = new JavaLogger {
+//      override def debug(message: String) = logger.debug(message)
+//      override def info(message: String) = logger.info(message)
+//      override def warn(message: String) = logger.warn(message)
+//      override def error(message: String) = logger.error(message)
+//      override def error(message: String, exception: Exception) = logger.error(message, exception)
+//    }
+//    val progress = new TextProgressMonitor
+//    val javaProgress = new adept.progress.ProgressMonitor {
+//      override def beginTask(status: String, max: Int) = progress.beginTask(status, max)
+//      override def update(i: Int) = progress.update(i)
+//      override def endTask() = progress.endTask()
+//    }
+//
+//    //    adepthub.ivyInstall("org.javassist", "javassist", "3.18.0-GA", Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)).right.get
+//    val ivy = adepthub.defaultIvy
+////          ivy.configure(new File("/Users/freekh/Projects/adepthub-ext/adepthub-ext/src/test/resources/sbt-plugin-ivy-settings.xml"))
+//          ivy.configure(new File("/Users/freekh/Projects/adepthub-ext/adepthub-ext/src/test/resources/typesafe-ivy-settings.xml"))
+//    //    val org = "com.typesafe.play"
+//    //    val name = "sbt-plugin"
+//    //    val revision = "2.2.2"
+//        val org = "com.typesafe.akka"
+//    val name = "akka-actor_" + scalaBinaryVersion
+//    val revision = "2.2.1"
+//    adepthub.ivyImport(org, name, revision, Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty), ivy = ivy) match {
+//      case Right(true) => adepthub.contribute()
+//      case Right(false) =>
+//    }
+//    val searchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
+//    val newInputContext = searchResults.map {
+//      case searchResult: ImportSearchResult =>
+//        val hash = VariantMetadata.fromVariant(searchResult.variant).hash
+//        ResolutionResult(searchResult.variant.id, searchResult.repository, None, hash)
+//      case searchResult: GitSearchResult =>
+//        val hash = VariantMetadata.fromVariant(searchResult.variant).hash
+//        ResolutionResult(searchResult.variant.id, searchResult.repository, Some(searchResult.commit), hash)
+//      case searchResult: SearchResult =>
+//        throw new Exception("Found a search result but expected either an import or a git search result: " + searchResult)
+//    }
+//    val passphrase = None
+//    searchResults.foreach {
+//      case result: GitSearchResult if !result.isOffline =>
+//        adepthub.get(result.repository, result.locations.toSet)
+//      case _ => //pass
+//    }
+//    val newReqs = Set(
+//      Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/compile")), Set.empty, Set.empty),
+//      Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/master")), Set.empty, Set.empty))
+//
+//    val lockfileFile = new File("test.adept")
+//    val lockfile = {
+//      if (lockfileFile.exists())
+//        Lockfile.read(lockfileFile)
+//      else
+//        InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)
+//    }
+//
+//    val newReqIds = newReqs.map(_.id)
+//    val requirements = newReqs ++ (InternalLockfileWrapper.requirements(lockfile).filter { req =>
+//      //remove old reqs which are overwritten
+//      !newReqIds(req.id)
+//    })
+//    val newContextIds = newInputContext.map(_.id)
+//    val inputContext = newInputContext ++ (InternalLockfileWrapper.context(lockfile).filter { c =>
+//      //remove old reqs which are overwritten
+//      !newContextIds(c.id)
+//    })
+//    //get lockfile locations
+//    InternalLockfileWrapper.locations(lockfile).foreach {
+//      case (name, id, maybeCommit, locations) =>
+//        if (!newReqIds(id)) {
+//          maybeCommit match {
+//            case Some(commit) =>
+//              val repository = new GitRepository(baseDir, name)
+//              if (!(repository.exists && repository.hasCommit(commit))) {
+//                adepthub.get(name, locations)
+//              }
+//            case None => //pass
+//          }
+//        }
+//    }
+//
+//    adepthub.offlineResolve(
+//      requirements = requirements,
+//      importsDir = Some(importsDir),
+//      inputContext = inputContext,
+//      overrides = inputContext) match {
+//        case Right((resolveResult, lockfile)) =>
+//          println(resolveResult)
+//          adepthub.writeLockfile(lockfile, lockfileFile)
+//          lockfile.download(baseDir, downloadTimeoutMinutes, java.util.concurrent.TimeUnit.MINUTES, maxArtifactDownloadRetries, javaLogger, javaProgress)
+//        case Left(error) =>
+//          println(error)
+//      }
+//  } finally {
+//    cacheManager.shutdown()
+//  }
+//
+//}
 
 class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val scalaBinaryVersion: String, val cacheManager: CacheManager, val passphrase: Option[String] = None, val onlyOnline: Boolean = false, val progress: ProgressMonitor = new TextProgressMonitor) extends Logging { //TODO: make logging configurable
   val adept = new Adept(baseDir, cacheManager, passphrase, progress)
@@ -232,7 +233,8 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
     val providedVariants = Set() ++
       JavaVersions.getVariants(major, minor)
     val providedRequirements = Set() +
-      JavaVersions.getRequirement(major, minor)
+      JavaVersions.getRequirement(major, minor) ++
+      ScalaBinaryVersionConverter.getRequirement(scalaBinaryVersion)
    
    
     val mergedRequirements = (requirements ++ providedRequirements) //easier now and for ever after if requirements are merged into one id, with a set of constraints
