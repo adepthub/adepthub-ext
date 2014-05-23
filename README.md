@@ -9,11 +9,11 @@ resolvers += Resolver.url("adepthub-sbt-plugin-releases",
   new URL("http://adepthub.github.io/ah-sbt-plugin/releases"))(
     Resolver.ivyStylePatterns)
 
-addSbtPlugin("com.adepthub" % "adepthub-sbt-plugin" % "0.9.0-SNAPSHOT")
+addSbtPlugin("com.adepthub" % "adepthub-sbt-plugin" % "0.9.2")
 ```
 3) If you have libraryDependencies:
   1) Start up sbt
-  2) Run `ah ivy-convert`
+  2) Run `ah ivy-install` or `ah install` for each library dependency
   3) If it was successful, remove your libraryDependencies
 
 
