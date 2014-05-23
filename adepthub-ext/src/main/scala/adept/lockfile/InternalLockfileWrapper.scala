@@ -7,6 +7,7 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import adept.repository.models.ResolutionResult
 
+@deprecated("The name of this class will be changed") //TODO: <-- fix
 private[adept] object InternalLockfileWrapper { //All of these visibility limitations in Java sucks - I really do not want the Lockfile to be public and the package must be adept.lockfile (IMHO)... but I guess it is easier to go from package visibility/private to public than the other way aroud
   import collection.JavaConverters._
 

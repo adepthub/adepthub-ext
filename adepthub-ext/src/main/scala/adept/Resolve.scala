@@ -26,8 +26,7 @@ private[adept] object Resolve {
   }
 
   def createErrorReport(requirements: Set[Requirement], resolutionResults: Set[ResolutionResult], overrides: Set[ResolutionResult], transitiveContext: Set[ResolutionResult], result: ResolveResult) = {
-    println(result)
-    ???
+    ResolveErrorReport(result.toString, result)
   }
 
   //

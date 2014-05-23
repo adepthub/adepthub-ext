@@ -1,0 +1,1 @@
+adept.sbt.AdeptPlugin.adeptSettings

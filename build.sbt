@@ -33,4 +33,7 @@ lazy val adepthubUI = project.in(file("adepthub-ui")).settings(
   )
 ).dependsOn(adeptCore)
 
-
+lazy val adepthubSbt = project.in(file("adepthub-sbt")).settings( 
+  name := "adepthub-sbt",
+  sbtPlugin := true
+).dependsOn(adepthubExt)

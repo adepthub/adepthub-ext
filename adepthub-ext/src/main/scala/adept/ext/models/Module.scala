@@ -13,6 +13,14 @@ import adept.resolution.models.Constraint
 case class ModuleHash(value: String) extends AnyVal
 
 object Module {
+  def getModules(variants: Set[Variant]) = {
+    variants.groupBy(_.attribute(AttributeDefaults.MatureAttribute)).map {
+      case (moduleAttribute, variants) =>
+        val base = variants.map(_.id.value).reduce(_ intersect _)
+        (base, moduleAttribute) -> variants
+    }
+  }
+
   def modularise(baseId: Id, variants: Set[Variant]): Map[VariantHash, Variant] = {
     val hashes = variants.map { variant =>
       Hasher.hash(VariantMetadata.fromVariant(variant).hash.value.getBytes ++ variant.id.value.getBytes)
