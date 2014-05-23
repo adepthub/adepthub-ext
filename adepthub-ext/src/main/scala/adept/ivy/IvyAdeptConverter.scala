@@ -48,6 +48,9 @@ import adept.repository.metadata.VcsInfo
 import adept.repository.metadata.InfoMetadata
 import org.apache.ivy.plugins.resolver.URLResolver
 import org.apache.ivy.plugins.resolver.ChainResolver
+import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
+import adept.ext.VersionRank
+import adept.ext.AttributeDefaults
 
 class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[String] = Set("optional"), skippableConf: Option[Set[String]] = Some(Set("javadoc", "sources")), allowFailedArtifactTypes: Set[String] = Set("sources", "javadoc", "doc", "src")) extends Logging {
   import adept.ext.AttributeDefaults.{ ModuleHashAttribute, VersionAttribute }
@@ -419,6 +422,17 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
     }
   }
 
+  private def addScalaBinaryVersionsIfScala(variant: Variant) = {
+    if (ScalaBinaryVersionConverter.isScalaLibrary(variant.id)) {
+      val scalaVersion = VersionRank.getVersion(variant).getOrElse(throw new Exception("Could not get a version for scala variant: " + variant))
+      val (binaryVersions, _) = ScalaBinaryVersionConverter.getScalaBinaryCompatibleVersion(scalaVersion)
+      variant.copy(
+        attributes = variant.attributes + Attribute(AttributeDefaults.BinaryVersionAttribute, binaryVersions))
+    } else {
+      variant
+    }
+  }
+
   private def createIvyResult(currentIvyNode: IvyNode): Either[Set[IvyImportError], Set[IvyImportResult]] = {
     import collection.JavaConverters._
 
@@ -608,7 +622,8 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
       val allVariants = allResults.map(_.variant)
       val modulurisedVariants: Map[VariantHash, Variant] = Module.modularise(id, allVariants)
       val modulurisedResults = allResults.map { result =>
-        result.copy(variant = modulurisedVariants(VariantMetadata.fromVariant(result.variant).hash))
+        val newVariant = modulurisedVariants(VariantMetadata.fromVariant(result.variant).hash)
+        result.copy(variant = addScalaBinaryVersionsIfScala(newVariant))
       }
       Right(modulurisedResults)
     }

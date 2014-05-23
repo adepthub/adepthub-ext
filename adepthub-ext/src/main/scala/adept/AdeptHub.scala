@@ -96,15 +96,14 @@ object Main extends App with Logging { //TODO: remove
     //    val org = "com.typesafe.play"
     //    val name = "sbt-plugin"
     //    val revision = "2.2.2"
-    val org = "com.typesafe.akka"
-    val name = "akka-actor_" + scalaBinaryVersion
-    val revision = "2.2.2"
+        val org = "com.typesafe.slick"
+    val name = "slick_" + scalaBinaryVersion
+    val revision = "2.0.0"
     adepthub.ivyImport(org, name, revision, Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty), ivy = ivy) match {
       case Right(true) => adepthub.contribute()
       case Right(false) =>
     }
     val searchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
-    //    println(searchResults.mkString("\n"))
     val newInputContext = searchResults.map {
       case searchResult: ImportSearchResult =>
         val hash = VariantMetadata.fromVariant(searchResult.variant).hash
@@ -234,6 +233,8 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
       JavaVersions.getVariants(major, minor)
     val providedRequirements = Set() +
       JavaVersions.getRequirement(major, minor)
+   
+   
     val mergedRequirements = (requirements ++ providedRequirements) //easier now and for ever after if requirements are merged into one id, with a set of constraints
       .groupBy(_.id)
       .map {
@@ -260,13 +261,15 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
           case (variantHash, artifact) =>
             val artifactHash = artifact.hash
             variantHashMap(variantHash).map { contextValue =>
-              val metadata = contextValue.commit match {
-                case Some(commit) =>
+              val metadata = (contextValue.commit, importsDir) match {
+                case (Some(commit), _) =>
                   val repository = new GitRepository(baseDir, contextValue.repository)
-                  ArtifactMetadata.read(artifactHash, repository, commit).getOrElse(throw new Exception("Could not read artifact metadata for: " + artifactHash))
-                case None =>
-                  val repository = new Repository(baseDir, contextValue.repository)
-                  ArtifactMetadata.read(artifactHash, repository).getOrElse(throw new Exception("Could not read artifact metadata for: " + artifactHash))
+                  ArtifactMetadata.read(artifactHash, repository, commit).getOrElse(throw new Exception("Could not read artifact metadata for: " + artifactHash + ": " + contextValue))
+                case (None, Some(importsDir)) =>
+                  val repository = new Repository(importsDir, contextValue.repository)
+                  ArtifactMetadata.read(artifactHash, repository).getOrElse(throw new Exception("Could not read artifact metadata for: " + artifactHash + ": " + contextValue))
+                case (None, None) =>
+                  throw new Exception("Could find artifact metadata for: " + artifactHash + ": " + contextValue)
               }
               val fallbackFilename = contextValue.variant.value
               InternalLockfileWrapper.newArtifact(artifact.hash, metadata.size.toInt, metadata.locations, artifact.attributes, artifact.filename.getOrElse(fallbackFilename))

@@ -27,7 +27,6 @@ object IvyRequirements {
         case _ => Set.empty[Id]
       })
     } yield {
-      println(matchingId + " MATCHES ::: " + conf)
       matchingId
     }
   }

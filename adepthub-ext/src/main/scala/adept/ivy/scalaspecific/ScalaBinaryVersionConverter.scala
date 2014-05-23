@@ -18,8 +18,9 @@ object ScalaBinaryVersionConverter extends Logging {
 
   val ScalaBinaryVersionVersionExtractRegex = """^(\d*)\.(\d*)\.(\d*).*$""".r
 
-  def getScalaBinaryCompatibleVersion(version: String) = {
-    val binaryVersions = version match {
+  def getScalaBinaryCompatibleVersion(version: Version) = {
+    val versionString = version.value
+    val binaryVersions = versionString match {
       case ScalaBinaryVersionVersionExtractRegex(majorString, minorString, point) =>
         val major = majorString.toInt
         val minor = minorString.toInt
@@ -34,16 +35,20 @@ object ScalaBinaryVersionConverter extends Logging {
             else if (point == "1-1") Set("2.9.0", "2.9.1", "2.9.1-1")
             else if (point == "1") Set("2.9.0", "2.9.1")
             else if (point == "0") Set("2.9.0")
-            else Set.empty
+            else Set.empty[String]
           binaryVersions -> RankId(major + "." + minor)
         } else if (major == 2 && minor < 9) {
-          Set.empty -> RankingMetadata.DefaultRankId
+          Set.empty[String] -> RankingMetadata.DefaultRankId
+        } else {
+          Set.empty[String] -> RankingMetadata.DefaultRankId
         }
+      case _ =>
+        Set.empty[String] -> RankingMetadata.DefaultRankId
     }
     binaryVersions
   }
 
-  def isScalaLibrary(id: Id) {
+  def isScalaLibrary(id: Id) = {
     scalaLibIds(id)
   }
   val scalaRepository = RepositoryName("org.scala-lang")
