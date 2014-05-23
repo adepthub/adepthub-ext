@@ -97,15 +97,15 @@ object Main extends App with Logging { //TODO: remove
     //    val name = "sbt-plugin"
     //    val revision = "2.2.2"
     val org = "com.typesafe.akka"
-    val name = "akka-remote_" + scalaBinaryVersion
-    val revision = "2.3.0"
+    val name = "akka-actor_" + scalaBinaryVersion
+    val revision = "2.2.2"
     adepthub.ivyImport(org, name, revision, Set("master", "compile"), InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty), ivy = ivy) match {
       case Right(true) => adepthub.contribute()
       case Right(false) =>
     }
     val searchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
-    println(searchResults.mkString("\n"))
-    val inputContext = searchResults.map {
+    //    println(searchResults.mkString("\n"))
+    val newInputContext = searchResults.map {
       case searchResult: ImportSearchResult =>
         val hash = VariantMetadata.fromVariant(searchResult.variant).hash
         ResolutionResult(searchResult.variant.id, searchResult.repository, None, hash)
@@ -121,16 +121,54 @@ object Main extends App with Logging { //TODO: remove
         adepthub.get(result.repository, result.locations.toSet)
       case _ => //pass
     }
+    val newReqs = Set(
+      Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/compile")), Set.empty, Set.empty),
+      Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/master")), Set.empty, Set.empty))
+
+    val lockfileFile = new File("test.adept")
+    val lockfile = {
+      if (lockfileFile.exists())
+        Lockfile.read(lockfileFile)
+      else
+        InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)
+    }
+
+    val newReqIds = newReqs.map(_.id)
+    val requirements = newReqs ++ (InternalLockfileWrapper.requirements(lockfile).filter { req =>
+      //remove old reqs which are overwritten
+      !newReqIds(req.id)
+    })
+    val newContextIds = newInputContext.map(_.id)
+    val inputContext = newInputContext ++ (InternalLockfileWrapper.context(lockfile).filter { c =>
+      //remove old reqs which are overwritten
+      !newContextIds(c.id)
+    })
+    //get lockfile locations
+    InternalLockfileWrapper.locations(lockfile).foreach {
+      case (name, id, maybeCommit, locations) =>
+        if (!newReqIds(id)) {
+          maybeCommit match {
+            case Some(commit) =>
+              val repository = new GitRepository(baseDir, name)
+              if (!(repository.exists && repository.hasCommit(commit))) {
+                adepthub.get(name, locations)
+              }
+            case None => //pass
+          }
+        }
+    }
+
     adepthub.offlineResolve(
-      Set(
-        Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/compile")), Set.empty, Set.empty),
-        Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/master")), Set.empty, Set.empty)),
+      requirements = requirements,
       importsDir = Some(importsDir),
       inputContext = inputContext,
       overrides = inputContext) match {
         case Right((resolveResult, lockfile)) =>
-          lockfile.download(baseDir, downloadTimeoutMinutes, java.util.concurrent.TimeUnit.MINUTES, maxArtifactDownloadRetries, javaLogger, javaProgress)
           println(resolveResult)
+          adepthub.writeLockfile(lockfile, lockfileFile)
+          lockfile.download(baseDir, downloadTimeoutMinutes, java.util.concurrent.TimeUnit.MINUTES, maxArtifactDownloadRetries, javaLogger, javaProgress)
+        case Left(error) =>
+          println(error)
       }
   } finally {
     cacheManager.shutdown()
@@ -182,8 +220,21 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
     val overriddenInputContext = GitLoader.applyOverrides(inputContext, overrides)
     val context = GitLoader.computeTransitiveContext(baseDir, overriddenInputContext, importsDir)
     val overriddenContext = GitLoader.applyOverrides(context, overrides)
+    val transitiveLocations = GitLoader.computeTransitiveLocations(baseDir, overriddenInputContext, overriddenContext, importsDir)
+    transitiveLocations.foreach { locations =>
+      if (locations.uris.nonEmpty) {
+        get(locations.name, locations.uris)
+      } else{
+        logger.warn("Will not clone/pull: " + locations.name)
+      }
+    }
 
-    val mergedRequirements = requirements //easier now and for ever after if requirements are merged into one id, with a set of constraints
+    val (major, minor) = JavaVersions.getMajorMinorVersion(this.getClass)
+    val providedVariants = Set() ++
+      JavaVersions.getVariants(major, minor)
+    val providedRequirements = Set() +
+      JavaVersions.getRequirement(major, minor)
+    val mergedRequirements = (requirements ++ providedRequirements) //easier now and for ever after if requirements are merged into one id, with a set of constraints
       .groupBy(_.id)
       .map {
         case (id, reqs) =>
@@ -197,35 +248,38 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
           Requirement(id, constraints.toSet, reqs.flatMap(_.exclusions))
       }.toSet
 
-    val result = Resolve.offlineResolve(baseDir, this)(mergedRequirements, inputContext, overriddenInputContext, overriddenContext, overrides, importsDir).right.map {
-      case (resolveResult, locations) =>
+    val result = Resolve.offlineResolve(this)(mergedRequirements, inputContext, overriddenInputContext, overriddenContext, providedVariants, overrides, importsDir).right.map {
+      case resolveResult =>
         logger.debug(resolveResult.toString)
-        val artifactMap = resolveResult.getResolvedVariants.flatMap { case (_, variant) => variant.artifacts.map(VariantMetadata.fromVariant(variant).hash -> _) }.toMap
-        val variantHashMap = (context ++ overrides).groupBy(_.variant)
+        val artifactMap = resolveResult.getResolvedVariants.flatMap {
+          case (_, variant) =>
+            variant.artifacts.map(VariantMetadata.fromVariant(variant).hash -> _)
+        }.toMap
+        val variantHashMap = overriddenContext.groupBy(_.variant)
         val lockfileArtifacts = artifactMap.flatMap {
           case (variantHash, artifact) =>
             val artifactHash = artifact.hash
-            variantHashMap(variantHash).flatMap { contextValue =>
-              val maybeMetadata = contextValue.commit match {
+            variantHashMap(variantHash).map { contextValue =>
+              val metadata = contextValue.commit match {
                 case Some(commit) =>
                   val repository = new GitRepository(baseDir, contextValue.repository)
-                  ArtifactMetadata.read(artifactHash, repository, commit)
+                  ArtifactMetadata.read(artifactHash, repository, commit).getOrElse(throw new Exception("Could not read artifact metadata for: " + artifactHash))
                 case None =>
                   val repository = new Repository(baseDir, contextValue.repository)
-                  ArtifactMetadata.read(artifactHash, repository)
+                  ArtifactMetadata.read(artifactHash, repository).getOrElse(throw new Exception("Could not read artifact metadata for: " + artifactHash))
               }
-              maybeMetadata.map { metadata =>
-                val fallbackFilename = contextValue.variant.value
-                InternalLockfileWrapper.newArtifact(artifact.hash, metadata.size.toInt, metadata.locations, artifact.attributes, artifact.filename.getOrElse(fallbackFilename))
-              }
+              val fallbackFilename = contextValue.variant.value
+              InternalLockfileWrapper.newArtifact(artifact.hash, metadata.size.toInt, metadata.locations, artifact.attributes, artifact.filename.getOrElse(fallbackFilename))
             }
         }.toSet
         val lockfileContext = inputContext.flatMap { c =>
           resolveResult.getResolvedVariants.get(c.id).flatMap { variant =>
-              assert(c.id == variant.id)
-              assert(c.variant == VariantMetadata.fromVariant(variant).hash)
-              Some(InternalLockfileWrapper.newContext(info = variant.toString, variant.id, c.repository, locations.flatMap(_.uris), c.commit, c.variant))
-          } 
+            if (c.id != variant.id) throw new Exception("Input context has a different ids than resolved results. Resolved: " + variant.id.value + ", context: " + c.id.value + ". Context: " + c)
+            val resolvedHash = VariantMetadata.fromVariant(variant).hash
+            if (c.variant != resolvedHash) throw new Exception("Input context has a different hash than resolved results. Resolved: " + resolvedHash.value + ", context: " + c.variant.value + ". Context: " + c)
+            val locations = transitiveLocations.filter(_.name == c.repository).flatMap(_.uris)
+            Some(InternalLockfileWrapper.newContext(info = variant.toString, variant.id, c.repository, locations, c.commit, c.variant))
+          }
         }
         val lockfileRequirements = mergedRequirements.map { r =>
           InternalLockfileWrapper.newRequirement(r.id, r.constraints, r.exclusions)

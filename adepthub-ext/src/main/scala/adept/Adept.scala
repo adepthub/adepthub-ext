@@ -25,6 +25,7 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
   def searchRepository(term: String, name: RepositoryName, constraints: Set[Constraint] = Set.empty): Set[GitSearchResult] = {
     val repository = new GitRepository(baseDir, name)
     if (repository.exists) {
+      println(repository.dir.getAbsolutePath())
       val commit = repository.getHead
       VariantMetadata.listIds(repository, commit).flatMap { id =>
         if (matches(term, id)) {

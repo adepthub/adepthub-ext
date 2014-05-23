@@ -5,20 +5,42 @@ import adept.artifact.models.ArtifactLocation
 import adept.artifact.models.ArtifactAttribute
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import adept.repository.models.ResolutionResult
 
 private[adept] object InternalLockfileWrapper { //All of these visibility limitations in Java sucks - I really do not want the Lockfile to be public and the package must be adept.lockfile (IMHO)... but I guess it is easier to go from package visibility/private to public than the other way aroud
   import collection.JavaConverters._
 
+  def asCoreRequirement(lockfileRequirement: LockfileRequirement) = {
+    val id = adept.resolution.models.Id(lockfileRequirement.id.value)
+    val constraints = Set() ++ lockfileRequirement.constraints.asScala.map { c =>
+      adept.resolution.models.Constraint(c.name, Set() ++ c.values.asScala)
+    }
+    val exclusions = Set() ++ lockfileRequirement.exclusions.asScala.map { id =>
+      adept.resolution.models.Id(id.value)
+    }
+    adept.resolution.models.Requirement(id, constraints, exclusions)
+  }
+
+  def asCoreContext(lockfileContext: LockfileContext) = {
+    val id = adept.resolution.models.Id(lockfileContext.id.value)
+    val commit = Option(lockfileContext.commit).map(c => adept.repository.models.Commit(c.value))
+    val repository = adept.repository.models.RepositoryName(lockfileContext.repository.value)
+    val hash = adept.repository.models.VariantHash(lockfileContext.hash.value)
+    ResolutionResult(id, repository, commit, hash)
+  }
+
   def requirements(lockfile: Lockfile) = {
-    lockfile.requirements.asScala
+    Set() ++ lockfile.requirements.asScala.map(asCoreRequirement)
   }
 
   def context(lockfile: Lockfile) = {
-    lockfile.context.asScala
+    Set() ++ lockfile.context.asScala.map(asCoreContext)
   }
 
-  def artifacts(lockfile: Lockfile) = {
-    lockfile.artifacts.asScala
+  def locations(lockfile: Lockfile) = {
+    Set() ++ lockfile.context.asScala.map { c =>
+      (adept.repository.models.RepositoryName(c.repository.value), adept.resolution.models.Id(c.id.value), Option(c.commit).map(c => adept.repository.models.Commit(c.value)), Set() ++ c.locations.asScala.map(_.value))
+    }
   }
 
   def create(requirements: Set[LockfileRequirement], context: Set[LockfileContext], artifacts: Set[LockfileArtifact]) = {

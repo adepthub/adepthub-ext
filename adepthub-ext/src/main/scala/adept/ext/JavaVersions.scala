@@ -76,7 +76,7 @@ object JavaVersions {
     val targetVersion = targetVersionLookup.getOrElse((major, minor), throw new Exception("Could not determine java target version with major, minor: " + (major, minor)))
     "JVM versions must be higher than: " + targetVersion
   }
-  def getVariant(major: Int, minor: Int) = {
+  def getVariants(major: Int, minor: Int) = {
     val binaryVersions = binaryVersionsLookup.getOrElse((major, minor), throw new Exception("Could not determine java target version with major, minor: " + (major, minor)))
     val variants = Set(Variant(jvmBaseId,
       Set(Attribute(AttributeDefaults.BinaryVersionAttribute, binaryVersions)),
