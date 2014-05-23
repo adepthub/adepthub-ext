@@ -2,8 +2,8 @@
 
 ## Install instructions
 NOTE: Adept and the AdeptHub sbt plugin is in alpha - you have been warned!
-1) To your `build.sbt` add the line: ```adept.sbt.AdeptPlugin.adeptSettings```
-2) To your `project/plugins.sbt` add:
+  - To your `build.sbt` add the line: ```adept.sbt.AdeptPlugin.adeptSettings```
+  - To your `project/plugins.sbt` add:
 ```scala
 resolvers += Resolver.url("adepthub-sbt-plugin-releases",
   new URL("http://adepthub.github.io/ah-sbt-plugin/releases"))(
@@ -11,10 +11,10 @@ resolvers += Resolver.url("adepthub-sbt-plugin-releases",
 
 addSbtPlugin("com.adepthub" % "adepthub-sbt-plugin" % "0.9.2")
 ```
-3) If you have libraryDependencies:
-  1) Start up sbt
-  2) Run `ah ivy-install` or `ah install` for each library dependency
-  3) If it was successful, remove your libraryDependencies
+ - If you have libraryDependencies:
+    1) Start up sbt
+    2) Run `ah ivy-install` or `ah install` for each library dependency
+    3) If it was successful, remove your libraryDependencies
 
 
 ## Features
