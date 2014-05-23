@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra">
+	<info organisation="com.adepthub" module="adept_2.10" revision="0.9.2" status="release" publication="20140524004450">
+		<description>
+		adept
+		</description>
+	</info>
+	<configurations>
+		<conf name="compile" visibility="public" description=""/>
+		<conf name="runtime" visibility="public" description="" extends="compile"/>
+		<conf name="test" visibility="public" description="" extends="runtime"/>
+		<conf name="provided" visibility="public" description=""/>
+		<conf name="optional" visibility="public" description=""/>
+		
+		
+		
+		
+		<conf name="sources" visibility="public" description=""/>
+		<conf name="docs" visibility="public" description=""/>
+		<conf name="pom" visibility="public" description=""/>
+		
+	</configurations>
+	<publications>
+		<artifact name="adept_2.10" type="pom" ext="pom" conf="pom"/>
+		<artifact name="adept_2.10" type="jar" ext="jar" conf="compile"/>
+		<artifact name="adept_2.10" type="src" ext="jar" conf="sources" e:classifier="sources"/>
+		<artifact name="adept_2.10" type="doc" ext="jar" conf="docs" e:classifier="javadoc"/>
+	</publications>
+	<dependencies>
+		
+		<dependency org="org.scala-lang" name="scala-library" rev="2.10.3" conf="compile->default(compile)"/>
+	</dependencies>
+</ivy-module>
