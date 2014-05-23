@@ -22,7 +22,7 @@ object IvyImportResultInserter extends Logging {
    *
    *  @returns files that must be added and files that removed
    */
-  protected def useDefaultVersionRanking(id: Id, variant: VariantHash, repository: Repository, rankId: Option[RankId]): (Set[File], Set[File]) = {
+  protected def useDefaultVersionRanking(id: Id, variant: VariantHash, repository: Repository): (Set[File], Set[File]) = {
     val rankId = RankingMetadata.DefaultRankId
     val hashes = RankingMetadata.read(id, rankId, repository).toSeq.flatMap(_.variants)
     val variants = (hashes :+ variant).flatMap { hash =>
