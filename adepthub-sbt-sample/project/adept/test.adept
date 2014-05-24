@@ -1,0 +1,108 @@
+{
+  "requirements" : [ {
+    "id" : "com.typesafe.akka/akka-remote/config/compile",
+    "constraints" : { },
+    "exclusions" : [ ]
+  }, {
+    "id" : "com.typesafe.akka/akka-remote/config/master",
+    "constraints" : { },
+    "exclusions" : [ ]
+  }, {
+    "id" : "jvm/config/system",
+    "constraints" : {
+      "binary-version" : [ "1.6" ]
+    },
+    "exclusions" : [ ]
+  }, {
+    "id" : "org.scala-lang/scala-library/config/compile",
+    "constraints" : {
+      "binary-version" : [ "2.10" ]
+    },
+    "exclusions" : [ ]
+  }, {
+    "id" : "org.scala-lang/scala-library/config/master",
+    "constraints" : {
+      "binary-version" : [ "2.10" ]
+    },
+    "exclusions" : [ ]
+  } ],
+  "context" : [ {
+    "info" : "com.typesafe.akka/akka-remote [ivy-name=(akka-remote_2.10),ivy-organisation=(com.typesafe.akka),module-hash=(274a78b8923cc0656ed5dff12d37aa21ee8a24ba7d2248420aa5be0a8bef70eb),version=(2.2.3)]",
+    "id" : "com.typesafe.akka/akka-remote",
+    "repository" : "com.typesafe.akka",
+    "locations" : [ "git://adepthub.com/repos/com.typesafe.akka" ],
+    "commit" : "fdc5c8823499448a9a71e32e6abeafeab29b6980",
+    "hash" : "710be39ea460e4dfb69c70be0532c9d8fedc4b02ff307d9c7c6ca49af2537778"
+  }, {
+    "info" : "com.typesafe.akka/akka-remote/config/compile [configuration=(compile),ivy-name=(akka-remote_2.10),ivy-organisation=(com.typesafe.akka),module-hash=(274a78b8923cc0656ed5dff12d37aa21ee8a24ba7d2248420aa5be0a8bef70eb),version=(2.2.3)]",
+    "id" : "com.typesafe.akka/akka-remote/config/compile",
+    "repository" : "com.typesafe.akka",
+    "locations" : [ "git://adepthub.com/repos/com.typesafe.akka" ],
+    "commit" : "fdc5c8823499448a9a71e32e6abeafeab29b6980",
+    "hash" : "37a5ffd14910c0e092cce1aac4ca0dd0cc943e26c3bce52787ece96a8ff5746f"
+  }, {
+    "info" : "com.typesafe.akka/akka-remote/config/master [configuration=(master),ivy-name=(akka-remote_2.10),ivy-organisation=(com.typesafe.akka),module-hash=(274a78b8923cc0656ed5dff12d37aa21ee8a24ba7d2248420aa5be0a8bef70eb),version=(2.2.3)]",
+    "id" : "com.typesafe.akka/akka-remote/config/master",
+    "repository" : "com.typesafe.akka",
+    "locations" : [ "git://adepthub.com/repos/com.typesafe.akka" ],
+    "commit" : "fdc5c8823499448a9a71e32e6abeafeab29b6980",
+    "hash" : "828d491c57992683b21d5cff4f7e89182a536cc4504b626e21701db5bb2aae1c"
+  } ],
+  "artifacts" : [ {
+    "hash" : "020955457e5e1fe2707f3ea05a2dad76b20bbe2677bf8cc54644ed7dba63373b",
+    "size" : 1277288,
+    "locations" : [ "http://repo1.maven.org/maven2/com/typesafe/akka/akka-remote_2.10/2.2.3/akka-remote_2.10-2.2.3.jar" ],
+    "attributes" : {
+      "configurations" : [ "master" ]
+    },
+    "filename" : "akka-remote_2.10-2.2.3.jar"
+  }, {
+    "hash" : "4493f1546fe1e367781474af4f18f3b75945be901a138829ce011626f657121b",
+    "size" : 2669443,
+    "locations" : [ "http://repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.10/2.2.3/akka-actor_2.10-2.2.3.jar" ],
+    "attributes" : {
+      "configurations" : [ "master" ]
+    },
+    "filename" : "akka-actor_2.10-2.2.3.jar"
+  }, {
+    "hash" : "8d9373e00c4e485cc9613c89fd7c05066c8be65adde8526474916a1bb1cc1797",
+    "size" : 1206119,
+    "locations" : [ "http://repo1.maven.org/maven2/io/netty/netty/3.6.6.Final/netty-3.6.6.Final.jar" ],
+    "attributes" : {
+      "configurations" : [ "master" ]
+    },
+    "filename" : "netty-3.6.6.Final.jar"
+  }, {
+    "hash" : "9079d44aed426254019a2d9fd3e3e63870e831363f82c38984a17e01c3dd650f",
+    "size" : 187497,
+    "locations" : [ "http://repo1.maven.org/maven2/com/typesafe/config/1.0.2/config-1.0.2.jar" ],
+    "attributes" : {
+      "configurations" : [ "master" ]
+    },
+    "filename" : "config-1.0.2.jar"
+  }, {
+    "hash" : "9b49ec36ccdea13fbca8d1e1e2a74a8cc94e4fa0a9aced1fc74f8df32c1b1b99",
+    "size" : 7121818,
+    "locations" : [ "http://repo1.maven.org/maven2/org/scala-lang/scala-library/2.10.2/scala-library-2.10.2.jar" ],
+    "attributes" : {
+      "configurations" : [ "master" ]
+    },
+    "filename" : "scala-library-2.10.2.jar"
+  }, {
+    "hash" : "ad9769a22989e688a46af4d3accc348cc501ced22118033230542bc916e33f0b",
+    "size" : 450279,
+    "locations" : [ "http://repo.typesafe.com/typesafe/releases/com/google/protobuf/protobuf-java/2.4.1/protobuf-java-2.4.1.jar" ],
+    "attributes" : {
+      "configurations" : [ "master" ]
+    },
+    "filename" : "protobuf-java-2.4.1.jar"
+  }, {
+    "hash" : "eebe98f2f9d8cb5d2a030a1c3e52cfbb3ee0ff5b6a721a45e62092e3bbf83c5c",
+    "size" : 49019,
+    "locations" : [ "http://repo.typesafe.com/typesafe/releases/org/uncommons/maths/uncommons-maths/1.2.2a/uncommons-maths-1.2.2a.jar" ],
+    "attributes" : {
+      "configurations" : [ "master" ]
+    },
+    "filename" : "uncommons-maths-1.2.2a.jar"
+  } ]
+}

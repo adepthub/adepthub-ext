@@ -6,15 +6,14 @@ NOTE: Adept and the AdeptHub sbt plugin is in alpha - you have been warned!
   - To your `project/plugins.sbt` add:
 ```scala
 resolvers += Resolver.url("adepthub-sbt-plugin-releases",
-  new URL("http://adepthub.github.io/ah-sbt-plugin/releases"))(
+  new URL("http://adepthub.github.io/adepthub-ext/releases"))(
     Resolver.ivyStylePatterns)
 
-addSbtPlugin("com.adepthub" % "adepthub-sbt-plugin" % "0.9.2")
+addSbtPlugin("com.adepthub" % "adepthub-sbt" % "0.9.2.1")
 ```
- - If you have libraryDependencies:
-    1) Start up sbt
-    2) Run `ah ivy-install` or `ah install` for each library dependency
-    3) If it was successful, remove your libraryDependencies
+ - Now you should be ready to rumble:
+    - In sbt try: `ah install` to install a new library. It actually searches for unique modules, so if you do `ah install akka-actor/` and there is only one module matching it (which is the case it will work). If you want a particular version use `-v`: `ah install akka-actor/ -v 2.2.1`
+    - You can also do: `ah ivy-install` if you are using a library which is not available locally or on AdeptHub. When you are done with this do: `ah contribute-imports` to push them to AdeptHub to be more reliable, faster and to avoid having a project/adept/imports repository.
 
 
 ## Features
