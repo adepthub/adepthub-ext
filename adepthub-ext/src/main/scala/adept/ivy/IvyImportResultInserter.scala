@@ -110,7 +110,7 @@ object IvyImportResultInserter extends Logging {
     progress.endTask()
     progress.beginTask("Converting versions to adept", grouped.size)
 
-    val ivyResultsByVersions = results.groupBy { ivyResult =>
+    val ivyResultsByVersions = included.groupBy { ivyResult =>
       val version = VersionRank.getVersion(ivyResult.variant).getOrElse(throw new Exception("Found an ivy result without version: " + ivyResult))
       (ivyResult.repository, ivyResult.variant.id, version)
     }
@@ -221,11 +221,11 @@ object IvyImportResultInserter extends Logging {
             info.write(id, hash, repository)
           }
           result.resourceFile.foreach { file =>
-            val dest = new File(repository.getVariantHashDir(id, hash), file.getName) 
+            val dest = new File(repository.getVariantHashDir(id, hash), file.getName)
             copy(file, dest)
           }
           result.resourceOriginalFile.foreach { file =>
-            val dest = new File(repository.getVariantHashDir(id, hash), file.getName) 
+            val dest = new File(repository.getVariantHashDir(id, hash), file.getName)
             copy(file, dest)
           }
         }
