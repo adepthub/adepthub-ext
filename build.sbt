@@ -6,7 +6,7 @@ scalacOptions += "-deprecation"
 
 incOptions := incOptions.value.withNameHashing(true)
 
-lazy val adeptVersion = "0.9.2"
+lazy val adeptVersion = "0.9.2.1"
 
 lazy val adepthubOrg = "com.adepthub"
 

@@ -17,6 +17,7 @@ import adept.sbt.AdeptDefaults
 import adept.sbt.SbtUtils
 import adept.ivy.IvyConstants
 import adept.ext.AttributeDefaults
+import adept.sbt.AdeptKeys
 
 object ContributeCommand {
   import sbt.complete.DefaultParsers._
@@ -33,8 +34,14 @@ object ContributeCommand {
 class ContributeCommand(adepthub: AdeptHub) extends AdeptCommand {
   def execute(state: State): State = {
     val logger = state.globalLogging.full
-    adepthub.contribute()
+    val lockfiles = SbtUtils.evaluateTask(AdeptKeys.adeptLockfiles, SbtUtils.currentProject(state), state)
+    val results = adepthub.contribute()
+    lockfiles.foreach { case (conf, lockfileFile) =>
+      val lockfile = Lockfile.read(lockfileFile)
+      adepthub.writeLockfile(InternalLockfileWrapper.updateWithContributions(lockfile, results), lockfileFile)
+    }
     scala.reflect.io.Directory(adepthub.importsDir).deleteRecursively
+    
     state
   }
 }

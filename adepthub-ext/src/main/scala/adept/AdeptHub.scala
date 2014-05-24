@@ -209,8 +209,12 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
     }
 
     if (doImport) {
-      Ivy.ivyImport(adept, this, progress)(org, name, revision, ivy, useScalaConvert, forceImport)
-      Right(Set.empty[SearchResult])
+      Ivy.ivyImport(adept, this, progress)(org, name, revision, ivy, useScalaConvert, forceImport) match {
+        case Right(_) =>  
+          Right(Set.empty[SearchResult])
+        case Left(errors) => 
+          Left(errors)
+      }
     } else Right(existing.toSet)
   }
 
@@ -224,11 +228,11 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
   }
 
   @deprecated("Will be renamed to list") //TODO: <- remove and update based on deprecation
-  def search(term: String, constraints: Set[Constraint] = Set.empty, onlineTimeout: FiniteDuration = defaultTimeout): Set[SearchResult] = {
+  def search(term: String, constraints: Set[Constraint] = Set.empty, onlineTimeout: FiniteDuration = defaultTimeout, alwaysIncludeImports: Boolean = false): Set[SearchResult] = {
     val onlineResults = Search.onlineSearch(url)(term, constraints, defaultExecutionContext)
     val offlineResults = adept.search(term, constraints)
     val importResults = Search.searchImport(importsDir, adept)(term, constraints)
-    Search.mergeSearchResults(imports = importResults, offline = offlineResults, online = Await.result(onlineResults, onlineTimeout))
+    Search.mergeSearchResults(imports = importResults, offline = offlineResults, online = Await.result(onlineResults, onlineTimeout), alwaysIncludeImports)
   }
 
   def offlineResolve(requirements: Set[Requirement], inputContext: Set[ResolutionResult], overrides: Set[ResolutionResult] = Set.empty): Either[ResolveErrorReport, (ResolveResult, Lockfile)] = {

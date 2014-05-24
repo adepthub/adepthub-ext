@@ -96,6 +96,7 @@ object Contribute extends Logging {
                   logger.warn("Ignoring " + result)
                 }
               }
+              results
           }
         } else {
           throw new Exception("AdeptHub returned with: " + status + ":\n" + responseString)
@@ -108,7 +109,7 @@ object Contribute extends Logging {
     }
   }
 
-  def contribute(url: String, baseDir: File, passphrase: Option[String], progress: ProgressMonitor, importsDir: File) = {
-    sendFile(url, baseDir, passphrase, progress)(compress(importsDir))
+  def contribute(url: String, baseDir: File, passphrase: Option[String], progress: ProgressMonitor, importsDir: File): Set[ContributionResult] = {
+    sendFile(url, baseDir, passphrase, progress)(compress(importsDir)).toSet
   }
 }

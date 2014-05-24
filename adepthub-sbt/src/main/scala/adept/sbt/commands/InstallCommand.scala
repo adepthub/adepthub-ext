@@ -105,6 +105,7 @@ class InstallCommand(args: Seq[String], confs: Set[String], lockfileGetter: Stri
               case Right((resolveResult, lockfile)) =>
                 if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
                 adepthub.writeLockfile(lockfile, lockfileFile)
+                logger.info("Installed " + baseIdString + ": " + variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(variant.toString)).mkString("\n"))
                 state
               case Left(error) =>
                 val resolveState = error.result.state

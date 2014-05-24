@@ -8,7 +8,7 @@ object AdeptBuild extends Build {
     
   lazy val root = Project(id = "adepthub-sbt-sample-project",
     base = file("."),
-    settings = Project.defaultSettings).dependsOn(ProjectRef(file("../../"), "adepthubSbt"))
+    settings = Project.defaultSettings) //.dependsOn(ProjectRef(file("../../"), "adepthubSbt"))
   
 }
 

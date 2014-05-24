@@ -6,6 +6,7 @@ import adept.artifact.models.ArtifactAttribute
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import adept.repository.models.ResolutionResult
+import adepthub.models.ContributionResult
 
 @deprecated("The name of this class will be changed") //TODO: <-- fix
 private[adept] object InternalLockfileWrapper { //All of these visibility limitations in Java sucks - I really do not want the Lockfile to be public and the package must be adept.lockfile (IMHO)... but I guess it is easier to go from package visibility/private to public than the other way aroud
@@ -42,6 +43,21 @@ private[adept] object InternalLockfileWrapper { //All of these visibility limita
     Set() ++ lockfile.context.asScala.map { c =>
       (adept.repository.models.RepositoryName(c.repository.value), adept.resolution.models.Id(c.id.value), Option(c.commit).map(c => adept.repository.models.Commit(c.value)), Set() ++ c.locations.asScala.map(_.value))
     }
+  }
+
+  def updateWithContributions(lockfile: Lockfile, contributions: Set[ContributionResult]) = {
+    val contributionByRepos = contributions.groupBy(_.repository)
+    val newContext = lockfile.context.asScala.map { value =>
+      contributionByRepos.get(adept.repository.models.RepositoryName(value.repository.value)) match {
+        case Some(matchingContribs) =>
+          if (matchingContribs.size != 1) throw new Exception("Got more than one contribution per repository. This is unexpected so we fail. Contributions:\n" + contributions.mkString("\n"))
+          val matchingContrib = matchingContribs.head
+          new LockfileContext(value.info, value.id, value.repository, matchingContrib.locations.map{ new RepositoryLocation(_) }.toSet.asJava, new Commit(matchingContrib.commit.value), value.hash)
+        case None =>
+          value
+      }
+    }
+    new Lockfile(lockfile.requirements, newContext.asJava, lockfile.artifacts)
   }
 
   def create(requirements: Set[LockfileRequirement], context: Set[LockfileContext], artifacts: Set[LockfileArtifact]) = {

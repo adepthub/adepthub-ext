@@ -16,7 +16,7 @@ import org.apache.http.impl.client.HttpClientBuilder
 
 private[adept] object Search {
 
-  def mergeSearchResults(imports: Set[ImportSearchResult], offline: Set[GitSearchResult], online: Set[GitSearchResult]): Set[SearchResult] = {
+  def mergeSearchResults(imports: Set[ImportSearchResult], offline: Set[GitSearchResult], online: Set[GitSearchResult], alwaysIncludeImports: Boolean): Set[SearchResult] = {
     val offlineRepoCommit = offline.map { result =>
       result.repository -> result.commit
     }
@@ -31,7 +31,7 @@ private[adept] object Search {
 
     gitResults ++ imports.filter { result =>
       //remove imported variants that can be found in Git (prefer Git > Imports):
-      !gitVariants(result.variant)
+      alwaysIncludeImports || !gitVariants(result.variant)
     }
   }
 

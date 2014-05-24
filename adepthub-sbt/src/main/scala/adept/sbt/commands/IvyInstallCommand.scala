@@ -36,24 +36,28 @@ class IvyInstallCommand(args: Seq[String], confs: Set[String], lockfileGetter: S
     val ivySbt = SbtUtils.evaluateTask(sbt.Keys.ivySbt, SbtUtils.currentProject(state), state)
     val scalaBinaryVersion = adepthub.scalaBinaryVersion
 
+    val (prunedArgs, isForced) = {
+      args.filter(_ != "-f") -> args.contains("-f")
+    }
+    
     val IvyRevisionRegex = """^\s*\"(.*?)\"\s*%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*$""".r
-    val ConfigIvyRevisionRegex = """^(.*?)\s*\"(.*?)\"\s*%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*$""".r
+    val ConfigIvyRevisionRegex = """^\s*\"(.*?)\"\s*%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*%\s*"(.*?)"\s*$""".r
     val IvyRevisionRegexScalaBinary = """^\s*\"(.*?)\"\s*%%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*$""".r
-    val ConfigIvyRevisionRegexScalaBinary = """(.*?)^\s*\"(.*?)\"\s*%%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*$""".r
+    val ConfigIvyRevisionRegexScalaBinary = """^\s*\"(.*?)\"\s*%%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*%\s*"(.*?)"\s*$""".r
 
     val defaultConf = "compile"
 
-    val expression = args.mkString("\n")
+    val expression = prunedArgs.mkString("\n")
     val (targetConf, (org, name, revision)) = expression match {
       case IvyRevisionRegex(org, name, revision) => (defaultConf, (org, name, revision))
       case IvyRevisionRegexScalaBinary(org, name, revision) => (defaultConf, (org, name + "_" + scalaBinaryVersion, revision))
-      case ConfigIvyRevisionRegex(conf, org, name, revision) => (conf, (org, name, revision))
-      case IvyRevisionRegexScalaBinary(conf, org, name, revision) => (conf, (org, name + "_" + scalaBinaryVersion, revision))
-      case _ => throw new Exception("""Need something matching: "<org>" % "<name>" % "<revision>" or "<conf> <org>" % "<name>" % "<revision>" or "<org>" %% "<name>" % "<revision>", but got: """ + expression)
+      case ConfigIvyRevisionRegex(org, name, revision, conf) => (conf, (org, name, revision))
+      case ConfigIvyRevisionRegexScalaBinary(org, name, revision, conf) => (conf, (org, name + "_" + scalaBinaryVersion, revision))
+      case _ => throw new Exception("""Need something matching: "<org>" % "<name>" % "<revision>" or "<org>" % "<name>" % "<revision> % "<conf>"" or "<org>" %% "<name>" % "<revision>", but got: """ + expression)
     }
     ivySbt.withIvy(IvyUtils.errorIvyLogger) { ivy =>
-      adepthub.ivyImport(org, name, revision, confs, ivy = ivy) match {
-        case Right(existing) if existing.nonEmpty =>
+      adepthub.ivyImport(org, name, revision, confs, ivy = ivy, forceImport = isForced) match {
+        case Right(existing) if existing.nonEmpty && !isForced  =>
           val alts = Module.getModules(existing.map { searchResult =>
             searchResult.variant
           })
@@ -77,7 +81,7 @@ class IvyInstallCommand(args: Seq[String], confs: Set[String], lockfileGetter: S
           state.fail
         case Right(_) =>
           val constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision)))
-          val allSearchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", constraints)
+          val allSearchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", constraints, alwaysIncludeImports = true)
           val importedSearchResults = allSearchResults.filter {
             case searchResult: ImportSearchResult => true
             case _ => false
@@ -138,6 +142,7 @@ class IvyInstallCommand(args: Seq[String], confs: Set[String], lockfileGetter: S
                 case Right((resolveResult, lockfile)) =>
                   if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
                   adepthub.writeLockfile(lockfile, lockfileFile)
+                  logger.info(s"Installed $org#$name!$revision")
                   state
                 case Left(error) =>
                   val resolveState = error.result.state
