@@ -4,9 +4,11 @@ scalacOptions += "-feature"
 
 scalacOptions += "-deprecation"
 
+val jvmTarget = "1.6"
+
 incOptions := incOptions.value.withNameHashing(true)
 
-lazy val adeptVersion = "0.9.2.1"
+lazy val adeptVersion = "0.9.2.3"
 
 lazy val adepthubOrg = "com.adepthub"
 
@@ -16,6 +18,7 @@ lazy val adepthubExt = project.in(file("adepthub-ext")).settings(
   name := "adepthub-ext",
   version := adeptVersion,
   organization := adepthubOrg,
+  scalacOptions += "-target:jvm-"+jvmTarget,
   resolvers += Resolver.url("Typesafe Ivy releases", url("https://repo.typesafe.com/typesafe/releases/"))(Resolver.ivyStylePatterns),
   libraryDependencies ++= Seq(
     "org.apache.ivy" % "ivy" % "2.3.0",
@@ -29,6 +32,7 @@ lazy val adepthubUI = project.in(file("adepthub-ui")).settings(
   name := "adepthub-ui",
   version := adeptVersion,
   organization := adepthubOrg,
+  scalacOptions += "-target:jvm-"+jvmTarget,
   resolvers += "spray repo" at "http://repo.spray.io", //spray
   resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/", //akka
   libraryDependencies ++= Seq(
@@ -43,5 +47,6 @@ lazy val adepthubSbt = project.in(file("adepthub-sbt")).settings(
   name := "adepthub-sbt",
   version := adeptVersion,
   organization := adepthubOrg,
+  scalacOptions += "-target:jvm-"+jvmTarget,
   sbtPlugin := true
 ).dependsOn(adepthubExt)

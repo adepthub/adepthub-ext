@@ -14,7 +14,7 @@ object AdeptPlugin extends Plugin {
   import AdeptKeys._
 
   def adeptSettings = defaultConfigDependentSettings(Test) ++ defaultConfigDependentSettings(Compile) ++ defaultConfigDependentSettings(Runtime) ++ Seq(
-     adeptLockfileGetter := { conf: String =>
+    adeptLockfileGetter := { conf: String =>
       baseDirectory.value / "project" / "adept" / (conf + ".adept")
     },
     adepthubUrl := "http://adepthub.com",
@@ -23,8 +23,7 @@ object AdeptPlugin extends Plugin {
     adeptTimeout := 60, //minutes
     adeptLockfiles := {
       val AdeptLockfileFilePattern = """(.*)\.adept""".r
-      new java.io.File(baseDirectory.value.getAbsoluteFile(), "project/adept").listFiles().flatMap { file =>
-
+      ((baseDirectory.value / "project" / "adept") ** "*.adept").get.flatMap { file =>
         if (file.isFile()) {
           file.getName match {
             case AdeptLockfileFilePattern(conf) =>
@@ -62,14 +61,17 @@ object AdeptPlugin extends Plugin {
 
   def defaultConfigDependentSettings(conf: Configuration) = Seq(
     adeptLockfileContent in conf := {
-      val lockfileFile = adeptLockfiles.value(conf.name)
-      val lockfile = {
-        if (lockfileFile.exists())
-          Lockfile.read(lockfileFile)
-        else
-          InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)
+      adeptLockfiles.value.get(conf.name).map { lockfileFile =>
+        val lockfile = {
+          if (lockfileFile.exists())
+            Lockfile.read(lockfileFile)
+          else
+            InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)
+        }
+        lockfile
+      }.getOrElse {
+        InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)
       }
-      lockfile
     },
     adeptClasspath in conf := {
       val logger = Keys.streams.value.log
