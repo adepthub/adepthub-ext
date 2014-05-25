@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra">
-	<info organisation="com.adepthub" module="adepthub-sbt" revision="0.9.2.5" status="release" publication="20140525214828" e:scalaVersion="2.10" e:sbtVersion="0.13">
+	<info organisation="com.adepthub" module="adepthub-sbt" revision="0.9.2.5" status="release" publication="20140525215718" e:scalaVersion="2.10" e:sbtVersion="0.13">
 		<description>
 		adepthub-sbt
 		</description>
