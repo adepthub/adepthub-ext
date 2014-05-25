@@ -14,7 +14,7 @@ case class ModuleHash(value: String) extends AnyVal
 
 object Module {
   def getModules(variants: Set[Variant]) = {
-    variants.groupBy(_.attribute(AttributeDefaults.MatureAttribute)).map {
+    variants.groupBy(_.attribute(AttributeDefaults.ModuleHashAttribute)).map {
       case (moduleAttribute, variants) =>
         val base = variants.map(_.id.value).reduce(_ intersect _)
         (base, moduleAttribute) -> variants

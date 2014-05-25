@@ -55,8 +55,9 @@ class InstallCommand(args: Seq[String], confs: Set[String], lockfileGetter: Stri
         } else if (modules.size > 1) {
           logger.error(s"Found more than one module for search on term: $term. Try narrowing your search.")
           logger.error("Results are:\n" + modules.map {
-            case ((_, base), variants) =>
-              base + "\n" + variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(variant.toString)).map("\t" + _).mkString("\n")
+            case ((base, _), variants) =>
+              val commonAttributes = variants.tail.foldLeft(variants.headOption.toSet[Variant].flatMap(_.attributes))(_ intersect _.attributes).filter(_.name != AttributeDefaults.ModuleHashAttribute) //TODO: heavy one liner - rewrite
+              base + "/:\n " + commonAttributes.toSeq.sorted.map(a => a.name + "=" + a.values.mkString("(", ",", ")")).mkString("[", ",", "]")
           }.mkString("\n"))
           state.fail
         } else {
