@@ -265,7 +265,6 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
         }
       }
       if (mustGet) {
-        println("MUST GET")
         if (locations.uris.nonEmpty) {
           get(locations.name, locations.uris)
         } else {
