@@ -5,6 +5,8 @@ NOTE: Adept and the AdeptHub sbt plugin is in alpha - you have been warned!
   - To your `build.sbt` add the line: ```adept.sbt.AdeptPlugin.adeptSettings```
   - To your `project/plugins.sbt` add:
 ```scala
+resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/"
+
 resolvers += Resolver.url("adepthub-sbt-plugin-releases",
   new URL("http://adepthub.github.io/adepthub-ext/releases"))(
     Resolver.ivyStylePatterns)
