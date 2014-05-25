@@ -66,6 +66,7 @@ import adept.repository.metadata.ArtifactMetadata
 import adept.logging.JavaLogger
 import adept.ext.models.Module
 import adept.ivy.IvyImportError
+import java.io.IOException
 
 object Main extends App with Logging { //TODO: remove
   val baseDir = new File(System.getProperty("user.home") + "/.adept")
@@ -108,7 +109,7 @@ object Main extends App with Logging { //TODO: remove
       case Right(existing) if existing.nonEmpty => //skip
       case Left(error) => throw new Exception(error.toString)
     }
-    val searchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
+    val searchResults = adepthub.search(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/", Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))), allowOffline = false)
     val newInputContext = adepthub.getContext(searchResults)
     val newReqs = Set(
       Requirement(ScalaBinaryVersionConverter.extractId(Id(org + "/" + name + "/config/compile")), Set.empty, Set.empty),
@@ -210,9 +211,9 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
 
     if (doImport) {
       Ivy.ivyImport(adept, this, progress)(org, name, revision, ivy, useScalaConvert, forceImport) match {
-        case Right(_) =>  
+        case Right(_) =>
           Right(Set.empty[SearchResult])
-        case Left(errors) => 
+        case Left(errors) =>
           Left(errors)
       }
     } else Right(existing.toSet)
@@ -228,8 +229,20 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
   }
 
   @deprecated("Will be renamed to list") //TODO: <- remove and update based on deprecation
-  def search(term: String, constraints: Set[Constraint] = Set.empty, onlineTimeout: FiniteDuration = defaultTimeout, alwaysIncludeImports: Boolean = false): Set[SearchResult] = {
-    val onlineResults = Search.onlineSearch(url)(term, constraints, defaultExecutionContext)
+  def search(term: String, constraints: Set[Constraint] = Set.empty, onlineTimeout: FiniteDuration = defaultTimeout, allowOffline: Boolean, alwaysIncludeImports: Boolean = false): Set[SearchResult] = {
+    val onlineResults = {
+      val onlineFuture = Search.onlineSearch(url)(term, constraints, defaultExecutionContext)
+      if (allowOffline) {
+        onlineFuture.recover {
+          case e: IOException =>
+            Set.empty[GitSearchResult]
+          case e: AdeptHubRecoverableException =>
+            Set.empty[GitSearchResult]
+        }(defaultExecutionContext)
+      } else {
+        onlineFuture
+      }
+    }
     val offlineResults = adept.search(term, constraints)
     val importResults = Search.searchImport(importsDir, adept)(term, constraints)
     Search.mergeSearchResults(imports = importResults, offline = offlineResults, online = Await.result(onlineResults, onlineTimeout), alwaysIncludeImports)
@@ -240,11 +253,24 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
     val context = GitLoader.computeTransitiveContext(baseDir, overriddenInputContext, Some(importsDir))
     val overriddenContext = GitLoader.applyOverrides(context, overrides)
     val transitiveLocations = GitLoader.computeTransitiveLocations(baseDir, overriddenInputContext, overriddenContext, Some(importsDir))
+    val commitsByRepo = overriddenContext.groupBy(_.repository).map { case (repo, values) => repo -> values.map(_.commit) }
     transitiveLocations.foreach { locations =>
-      if (locations.uris.nonEmpty) {
-        get(locations.name, locations.uris)
-      } else {
-        logger.warn("Will not clone/pull: " + locations.name)
+      val mustGet = commitsByRepo(locations.name).exists { commit =>
+        val repository = new GitRepository(baseDir, locations.name)
+        commit match {
+          case Some(commit) =>
+            !repository.hasCommit(commit)
+          case None =>
+            false
+        }
+      }
+      if (mustGet) {
+        println("MUST GET")
+        if (locations.uris.nonEmpty) {
+          get(locations.name, locations.uris)
+        } else {
+          throw new Exception("Cannot not clone/pull: " + locations.name + " because there are no locations to download from")
+        }
       }
     }
 
@@ -268,33 +294,33 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
           Requirement(id, constraints.toSet, reqs.flatMap(_.exclusions))
       }.toSet
 
-//    val scalaFixedInputContext = { //a fix to avoid imports messing up
-//      val (scalaContextValues, nonScalaContextValues) = overriddenContext.partition { c =>
-//        ScalaBinaryVersionConverter.isScalaLibrary(c.id)
-//      }
+    //    val scalaFixedInputContext = { //a fix to avoid imports messing up
+    //      val (scalaContextValues, nonScalaContextValues) = overriddenContext.partition { c =>
+    //        ScalaBinaryVersionConverter.isScalaLibrary(c.id)
+    //      }
 
-//      //We need this fix right now because it is quite common that there are multiple variants of scala in imports and other places
-//      //TODO: Must find a better way to do this (merging similar ranking files ?)
-//      val sortedScalaContextValues = scalaContextValues.groupBy(_.id).map {
-//        case (id, values) =>
-//          val sorted = values.toSeq.sortBy { value =>
-//            val metadata = value.commit match {
-//              case Some(commit) =>
-//                val repository = new GitRepository(baseDir, value.repository)
-//                VariantMetadata.read(id, value.variant, repository, commit, checkHash = true).getOrElse(throw new Exception("Cannot read scala variant: " + value + " from " + importsDir))
-//              case None =>
-//                val repository = new Repository(importsDir, value.repository)
-//                VariantMetadata.read(id, value.variant, repository, checkHash = true).getOrElse(throw new Exception("Cannot read scala variant: " + value + " from " + importsDir))
-//            }
-//            val variant = metadata.toVariant(id)
-//
-//            VersionRank.getVersion(variant).getOrElse(throw new Exception("Could not get version from scala variant: " + variant))
-//          }
-//          sorted.last
-//      }
-//      println(sortedScalaContextValues.mkString("\n"))
-//      sortedScalaContextValues.toSet ++ nonScalaContextValues
-//    }
+    //      //We need this fix right now because it is quite common that there are multiple variants of scala in imports and other places
+    //      //TODO: Must find a better way to do this (merging similar ranking files ?)
+    //      val sortedScalaContextValues = scalaContextValues.groupBy(_.id).map {
+    //        case (id, values) =>
+    //          val sorted = values.toSeq.sortBy { value =>
+    //            val metadata = value.commit match {
+    //              case Some(commit) =>
+    //                val repository = new GitRepository(baseDir, value.repository)
+    //                VariantMetadata.read(id, value.variant, repository, commit, checkHash = true).getOrElse(throw new Exception("Cannot read scala variant: " + value + " from " + importsDir))
+    //              case None =>
+    //                val repository = new Repository(importsDir, value.repository)
+    //                VariantMetadata.read(id, value.variant, repository, checkHash = true).getOrElse(throw new Exception("Cannot read scala variant: " + value + " from " + importsDir))
+    //            }
+    //            val variant = metadata.toVariant(id)
+    //
+    //            VersionRank.getVersion(variant).getOrElse(throw new Exception("Could not get version from scala variant: " + variant))
+    //          }
+    //          sorted.last
+    //      }
+    //      println(sortedScalaContextValues.mkString("\n"))
+    //      sortedScalaContextValues.toSet ++ nonScalaContextValues
+    //    }
 
     val result = Resolve.offlineResolve(this)(mergedRequirements, inputContext, overriddenInputContext, overriddenContext = overriddenContext, providedVariants, overrides, Some(importsDir)).right.map {
       case resolveResult =>

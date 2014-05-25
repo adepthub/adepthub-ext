@@ -1,29 +1,5 @@
 {
   "requirements" : [ {
-    "id" : "com.typesafe.akka/akka-actor/config/compile",
-    "constraints" : { },
-    "exclusions" : [ ]
-  }, {
-    "id" : "com.typesafe.akka/akka-actor/config/master",
-    "constraints" : { },
-    "exclusions" : [ ]
-  }, {
-    "id" : "com.typesafe.akka/akka-remote/config/compile",
-    "constraints" : { },
-    "exclusions" : [ ]
-  }, {
-    "id" : "com.typesafe.akka/akka-remote/config/master",
-    "constraints" : { },
-    "exclusions" : [ ]
-  }, {
-    "id" : "com.typesafe.play/play-json/config/compile",
-    "constraints" : { },
-    "exclusions" : [ ]
-  }, {
-    "id" : "com.typesafe.play/play-json/config/master",
-    "constraints" : { },
-    "exclusions" : [ ]
-  }, {
     "id" : "jvm/config/system",
     "constraints" : {
       "binary-version" : [ "1.6" ]
@@ -41,214 +17,60 @@
       "binary-version" : [ "2.10" ]
     },
     "exclusions" : [ ]
+  }, {
+    "id" : "org.scalatest/scalatest/config/compile",
+    "constraints" : { },
+    "exclusions" : [ ]
+  }, {
+    "id" : "org.scalatest/scalatest/config/master",
+    "constraints" : { },
+    "exclusions" : [ ]
   } ],
   "context" : [ {
-    "info" : "com.typesafe.akka/akka-actor [ivy-name=(akka-actor_2.10),ivy-organisation=(com.typesafe.akka),module-hash=(59e2ca2ce80a8995545e62f7da1de15d83ba1415383d3748ea686c9093a5fdd4),version=(2.2.2)]",
-    "id" : "com.typesafe.akka/akka-actor",
-    "repository" : "com.typesafe.akka",
-    "locations" : [ "git://adepthub.com/repos/com.typesafe.akka" ],
-    "commit" : "fdc5c8823499448a9a71e32e6abeafeab29b6980",
-    "hash" : "da6add801f8158f811ce4ae59e20aaa90a6a1697c3949667e7e6ea8731d6ed52"
+    "info" : "org.scalatest/scalatest [ivy-name=(scalatest_2.10),ivy-organisation=(org.scalatest),module-hash=(c57906adc160f01b31955959170344cfe7eee09d8f35eaa6aa5b495a462f7beb),version=(2.0)]",
+    "id" : "org.scalatest/scalatest",
+    "repository" : "org.scalatest",
+    "locations" : [ "git://adepthub.com/repos/org.scalatest" ],
+    "commit" : "2eddf39fc941d222822fc1c688de09ead18ef79a",
+    "hash" : "f0082854c7ca5191cfa9ce20698a7ae7ddd9f44baa08c8dc79daeec598a8299d"
   }, {
-    "info" : "com.typesafe.akka/akka-actor/config/compile [configuration=(compile),ivy-name=(akka-actor_2.10),ivy-organisation=(com.typesafe.akka),module-hash=(59e2ca2ce80a8995545e62f7da1de15d83ba1415383d3748ea686c9093a5fdd4),version=(2.2.2)]",
-    "id" : "com.typesafe.akka/akka-actor/config/compile",
-    "repository" : "com.typesafe.akka",
-    "locations" : [ "git://adepthub.com/repos/com.typesafe.akka" ],
-    "commit" : "fdc5c8823499448a9a71e32e6abeafeab29b6980",
-    "hash" : "05af286236d234cb3d8b041098155d8ef0fffe0c1f23a56c0434e121a814779b"
+    "info" : "org.scalatest/scalatest/config/compile [configuration=(compile),ivy-name=(scalatest_2.10),ivy-organisation=(org.scalatest),module-hash=(c57906adc160f01b31955959170344cfe7eee09d8f35eaa6aa5b495a462f7beb),version=(2.0)]",
+    "id" : "org.scalatest/scalatest/config/compile",
+    "repository" : "org.scalatest",
+    "locations" : [ "git://adepthub.com/repos/org.scalatest" ],
+    "commit" : "2eddf39fc941d222822fc1c688de09ead18ef79a",
+    "hash" : "47fc327459f93a965531a42897d6741f508fcd5cbaa519ca45962a90eb1fc115"
   }, {
-    "info" : "com.typesafe.akka/akka-actor/config/master [configuration=(master),ivy-name=(akka-actor_2.10),ivy-organisation=(com.typesafe.akka),module-hash=(59e2ca2ce80a8995545e62f7da1de15d83ba1415383d3748ea686c9093a5fdd4),version=(2.2.2)]",
-    "id" : "com.typesafe.akka/akka-actor/config/master",
-    "repository" : "com.typesafe.akka",
-    "locations" : [ "git://adepthub.com/repos/com.typesafe.akka" ],
-    "commit" : "fdc5c8823499448a9a71e32e6abeafeab29b6980",
-    "hash" : "f1b4c1c0983528b465054c5fac58c3ddf7bdab779992b93cfd13972077eb6757"
-  }, {
-    "info" : "com.typesafe.akka/akka-remote [ivy-name=(akka-remote_2.10),ivy-organisation=(com.typesafe.akka),module-hash=(c301f5dd48e80879c9aae41cd5217d954aeded7cdf85db372f846008dcb01d2d),version=(2.2.1)]",
-    "id" : "com.typesafe.akka/akka-remote",
-    "repository" : "com.typesafe.akka",
-    "locations" : [ "git://adepthub.com/repos/com.typesafe.akka" ],
-    "commit" : "fdc5c8823499448a9a71e32e6abeafeab29b6980",
-    "hash" : "ec2c3c3c8d39c653be1afad2c4f6848d684efe61ed401ca5bf48f8cfc411e853"
-  }, {
-    "info" : "com.typesafe.akka/akka-remote/config/compile [configuration=(compile),ivy-name=(akka-remote_2.10),ivy-organisation=(com.typesafe.akka),module-hash=(c301f5dd48e80879c9aae41cd5217d954aeded7cdf85db372f846008dcb01d2d),version=(2.2.1)]",
-    "id" : "com.typesafe.akka/akka-remote/config/compile",
-    "repository" : "com.typesafe.akka",
-    "locations" : [ "git://adepthub.com/repos/com.typesafe.akka" ],
-    "commit" : "fdc5c8823499448a9a71e32e6abeafeab29b6980",
-    "hash" : "b416a592244832e37738d17af7d5cda591b450e0c35413a469cca77ac057e051"
-  }, {
-    "info" : "com.typesafe.akka/akka-remote/config/master [configuration=(master),ivy-name=(akka-remote_2.10),ivy-organisation=(com.typesafe.akka),module-hash=(c301f5dd48e80879c9aae41cd5217d954aeded7cdf85db372f846008dcb01d2d),version=(2.2.1)]",
-    "id" : "com.typesafe.akka/akka-remote/config/master",
-    "repository" : "com.typesafe.akka",
-    "locations" : [ "git://adepthub.com/repos/com.typesafe.akka" ],
-    "commit" : "fdc5c8823499448a9a71e32e6abeafeab29b6980",
-    "hash" : "bb94dd67fbf77fb7d8c6c8688b9963cfba8dc36beba99d0be5ff0945f941a08b"
-  }, {
-    "info" : "com.typesafe.play/play-json [ivy-name=(play-json_2.10),ivy-organisation=(com.typesafe.play),module-hash=(c97d33bedd1da2698a1ac3005cc90a8f5cf55800782b09b2b02171b4ce90c906),version=(2.2.1)]",
-    "id" : "com.typesafe.play/play-json",
-    "repository" : "com.typesafe.play",
-    "locations" : [ "git://adepthub.com/repos/com.typesafe.play" ],
-    "commit" : "accd4cebbd3b2309130caa4e5e4ed6e5a0f340a8",
-    "hash" : "5cc0331b49f67681c33f286e44e410bbacabbe25ce243ef803162100184c4a03"
-  }, {
-    "info" : "com.typesafe.play/play-json/config/compile [configuration=(compile),ivy-name=(play-json_2.10),ivy-organisation=(com.typesafe.play),module-hash=(c97d33bedd1da2698a1ac3005cc90a8f5cf55800782b09b2b02171b4ce90c906),version=(2.2.1)]",
-    "id" : "com.typesafe.play/play-json/config/compile",
-    "repository" : "com.typesafe.play",
-    "locations" : [ "git://adepthub.com/repos/com.typesafe.play" ],
-    "commit" : "accd4cebbd3b2309130caa4e5e4ed6e5a0f340a8",
-    "hash" : "235d4a49033e86e18dda4df134d263f8662d961159d1562b12098d8f59e52d54"
-  }, {
-    "info" : "com.typesafe.play/play-json/config/master [configuration=(master),ivy-name=(play-json_2.10),ivy-organisation=(com.typesafe.play),module-hash=(c97d33bedd1da2698a1ac3005cc90a8f5cf55800782b09b2b02171b4ce90c906),version=(2.2.1)]",
-    "id" : "com.typesafe.play/play-json/config/master",
-    "repository" : "com.typesafe.play",
-    "locations" : [ "git://adepthub.com/repos/com.typesafe.play" ],
-    "commit" : "accd4cebbd3b2309130caa4e5e4ed6e5a0f340a8",
-    "hash" : "c34b042ea7f51b5d01468f2e61a72cfe83d6dd8c0475fb5598d056098690871c"
+    "info" : "org.scalatest/scalatest/config/master [configuration=(master),ivy-name=(scalatest_2.10),ivy-organisation=(org.scalatest),module-hash=(c57906adc160f01b31955959170344cfe7eee09d8f35eaa6aa5b495a462f7beb),version=(2.0)]",
+    "id" : "org.scalatest/scalatest/config/master",
+    "repository" : "org.scalatest",
+    "locations" : [ "git://adepthub.com/repos/org.scalatest" ],
+    "commit" : "2eddf39fc941d222822fc1c688de09ead18ef79a",
+    "hash" : "11ccf349734e932f97bc79b4002522691cfe45ae7b847e984e8c3b4a8b3a6f58"
   } ],
   "artifacts" : [ {
-    "hash" : "0967164db18018f73ffe3dc11c71ae45992d17e6c40eafd17c58d227c62dd1c6",
-    "size" : 2668990,
-    "locations" : [ "http://repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.10/2.2.2/akka-actor_2.10-2.2.2.jar" ],
+    "hash" : "561c19a122edccbd11159d625f42c0d7a095710db3d54aef845b7a6cca481c37",
+    "size" : 7114639,
+    "locations" : [ "http://repo1.maven.org/maven2/org/scala-lang/scala-library/2.10.0/scala-library-2.10.0.jar" ],
     "attributes" : {
       "configurations" : [ "master" ]
     },
-    "filename" : "akka-actor_2.10-2.2.2.jar"
+    "filename" : "scala-library-2.10.0.jar"
   }, {
-    "hash" : "19f7007ae4d61e1e47585ea742eb407bef36cd348b127bd4bf5c862f0a2f72b8",
-    "size" : 40544,
-    "locations" : [ "http://repo1.maven.org/maven2/org/joda/joda-convert/1.3.1/joda-convert-1.3.1.jar" ],
+    "hash" : "84bae8ce3b369febb9436fe36ed9b9d7dcc51af2cc9b8a3317a33124cfd5d4a9",
+    "size" : 3149351,
+    "locations" : [ "http://repo1.maven.org/maven2/org/scala-lang/scala-reflect/2.10.0/scala-reflect-2.10.0.jar" ],
     "attributes" : {
       "configurations" : [ "master" ]
     },
-    "filename" : "joda-convert-1.3.1.jar"
+    "filename" : "scala-reflect-2.10.0.jar"
   }, {
-    "hash" : "1e209fb9a42b9df79eafd3a6c60695600508e18b2bc98638a644872cefb00154",
-    "size" : 1269820,
-    "locations" : [ "http://repo1.maven.org/maven2/com/typesafe/akka/akka-remote_2.10/2.2.1/akka-remote_2.10-2.2.1.jar" ],
+    "hash" : "8e6abe3c043411ba25f71f1d1f06ecea09f815a9a6f1758c5832448da9174dff",
+    "size" : 7158439,
+    "locations" : [ "http://repo1.maven.org/maven2/org/scalatest/scalatest_2.10/2.0/scalatest_2.10-2.0.jar" ],
     "attributes" : {
       "configurations" : [ "master" ]
     },
-    "filename" : "akka-remote_2.10-2.2.1.jar"
-  }, {
-    "hash" : "1ec254be61bd73b44b9adf26923d04e18965aa48cb3d3e1537096056e139e3c7",
-    "size" : 191738,
-    "locations" : [ "http://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.2.2/jackson-core-2.2.2.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "jackson-core-2.2.2.jar"
-  }, {
-    "hash" : "62035399bb0eb6486c843134ff9bcbb86b916aea2ef811916150c3a3950b7cf5",
-    "size" : 366840,
-    "locations" : [ "http://repo.typesafe.com/typesafe/releases/com/typesafe/play/play-functional_2.10/2.2.1/play-functional_2.10-2.2.1.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "play-functional_2.10-2.2.1.jar"
-  }, {
-    "hash" : "638c58a97e04db5cd84de838d36a2caa09f8b36cdc23f57fdff159a00e8fbabc",
-    "size" : 627243,
-    "locations" : [ "http://repo.typesafe.com/typesafe/releases/com/typesafe/play/play-json_2.10/2.2.1/play-json_2.10-2.2.1.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "play-json_2.10-2.2.1.jar"
-  }, {
-    "hash" : "779aa03cba0398d3a3fc97cb665c15aafbfb532f104c1e52711a25afc4d88dc8",
-    "size" : 650514,
-    "locations" : [ "http://repo1.maven.org/maven2/org/scala-stm/scala-stm_2.10/0.7/scala-stm_2.10-0.7.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "scala-stm_2.10-0.7.jar"
-  }, {
-    "hash" : "82caa94bc4dee0b3485084ae15858fef41687bf0dfa82c52cb8870a00fbffd23",
-    "size" : 3171168,
-    "locations" : [ "http://repo1.maven.org/maven2/org/scala-lang/scala-reflect/2.10.2/scala-reflect-2.10.2.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "scala-reflect-2.10.2.jar"
-  }, {
-    "hash" : "8d9373e00c4e485cc9613c89fd7c05066c8be65adde8526474916a1bb1cc1797",
-    "size" : 1206119,
-    "locations" : [ "http://repo1.maven.org/maven2/io/netty/netty/3.6.6.Final/netty-3.6.6.Final.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "netty-3.6.6.Final.jar"
-  }, {
-    "hash" : "9079d44aed426254019a2d9fd3e3e63870e831363f82c38984a17e01c3dd650f",
-    "size" : 187497,
-    "locations" : [ "http://repo1.maven.org/maven2/com/typesafe/config/1.0.2/config-1.0.2.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "config-1.0.2.jar"
-  }, {
-    "hash" : "9b49ec36ccdea13fbca8d1e1e2a74a8cc94e4fa0a9aced1fc74f8df32c1b1b99",
-    "size" : 7121818,
-    "locations" : [ "http://repo1.maven.org/maven2/org/scala-lang/scala-library/2.10.2/scala-library-2.10.2.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "scala-library-2.10.2.jar"
-  }, {
-    "hash" : "ad9769a22989e688a46af4d3accc348cc501ced22118033230542bc916e33f0b",
-    "size" : 450279,
-    "locations" : [ "http://repo.typesafe.com/typesafe/releases/com/google/protobuf/protobuf-java/2.4.1/protobuf-java-2.4.1.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "protobuf-java-2.4.1.jar"
-  }, {
-    "hash" : "be786d03626a64acdae156917ef370b6e8ceb5e1f7e65b8a66780805c0fa3621",
-    "size" : 5198,
-    "locations" : [ "http://repo.typesafe.com/typesafe/releases/com/typesafe/play/play-datacommons_2.10/2.2.1/play-datacommons_2.10-2.2.1.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "play-datacommons_2.10-2.2.1.jar"
-  }, {
-    "hash" : "c21e020d437681b2dc4935a2d1dde697d8e095cb3c801f69936609eae4f3e8d0",
-    "size" : 716463,
-    "locations" : [ "http://repo.typesafe.com/typesafe/releases/com/typesafe/play/play-iteratees_2.10/2.2.1/play-iteratees_2.10-2.2.1.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "play-iteratees_2.10-2.2.1.jar"
-  }, {
-    "hash" : "ccc4a5a10e7a30ce61f11496a460b28fbfb48695e0f11d4ffcb76cc715bd7116",
-    "size" : 33491,
-    "locations" : [ "http://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.2.2/jackson-annotations-2.2.2.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "jackson-annotations-2.2.2.jar"
-  }, {
-    "hash" : "e5183ca131f7195bde5b27e4cd18deeb6d14f8bc5c483b1431421132927240af",
-    "size" : 573912,
-    "locations" : [ "http://repo1.maven.org/maven2/joda-time/joda-time/2.2/joda-time-2.2.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "joda-time-2.2.jar"
-  }, {
-    "hash" : "eebe98f2f9d8cb5d2a030a1c3e52cfbb3ee0ff5b6a721a45e62092e3bbf83c5c",
-    "size" : 49019,
-    "locations" : [ "http://repo.typesafe.com/typesafe/releases/org/uncommons/maths/uncommons-maths/1.2.2a/uncommons-maths-1.2.2a.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "uncommons-maths-1.2.2a.jar"
-  }, {
-    "hash" : "f9d2033d9d3809f307440227adf8900dbb89234282c77eacabd75d0f538a7cd9",
-    "size" : 866104,
-    "locations" : [ "http://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.2.2/jackson-databind-2.2.2.jar" ],
-    "attributes" : {
-      "configurations" : [ "master" ]
-    },
-    "filename" : "jackson-databind-2.2.2.jar"
+    "filename" : "scalatest_2.10-2.0.jar"
   } ]
 }

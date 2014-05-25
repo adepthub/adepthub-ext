@@ -15,7 +15,7 @@ private[adept] object Ivy {
     val id = ScalaBinaryVersionConverter.extractId(IvyUtils.ivyIdAsId(org, name))
     val repositoryName = IvyUtils.ivyIdAsRepositoryName(org)
     val configuredIds = configurations.map(IvyUtils.withConfiguration(id, _))
-    val searchResults = adeptHub.search(id.value, constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))))
+    val searchResults = adeptHub.search(id.value, constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))), allowOffline = false)
     val modules = searchResults.groupBy(_.variant.attribute(AttributeDefaults.ModuleHashAttribute))
     val foundMatchingVariants = modules.filter {
       case (_, results) =>

@@ -17,4 +17,18 @@ object SbtUtils {
 
   def currentProject(state: State) = Project.current(state)
 
+  /**
+   * Calculates which confs extends this conf because if we
+   * change compile, we must update not only compile, but also 
+   * test and runtime becaus test extends (compile, runtime) and 
+   * runtime extends (test)
+   * 
+   */
+  def getAllExtendingConfig(conf: sbt.Configuration, ivyConfigurations: Seq[sbt.Configuration]): Seq[sbt.Configuration] = {
+    val current = ivyConfigurations.filter{ descendant =>
+      descendant.extendsConfigs.contains(conf)
+    }
+    current ++ current.flatMap(c => getAllExtendingConfig(c, ivyConfigurations))
+  }
+
 }

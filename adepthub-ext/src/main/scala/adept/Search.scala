@@ -14,6 +14,8 @@ import play.api.libs.json.Json
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
 
+class AdeptHubRecoverableException(msg: String) extends Exception
+
 private[adept] object Search {
 
   def mergeSearchResults(imports: Set[ImportSearchResult], offline: Set[GitSearchResult], online: Set[GitSearchResult], alwaysIncludeImports: Boolean): Set[SearchResult] = {
@@ -61,7 +63,7 @@ private[adept] object Search {
                 throw new Exception("Could not parse AdeptHub response as search results. Got:\n" + responseString)
             }
           } else {
-            throw new Exception("AdeptHub returned with: " + status + ":\n" + responseString)
+            throw new AdeptHubRecoverableException("AdeptHub returned with: " + status + ":\n" + responseString)
           }
         } finally {
           response.close()
