@@ -50,6 +50,8 @@ object AdeptPlugin extends Plugin {
       lazy val adeptCommands = Seq(
         InstallCommand.using(confs, adeptLockfileGetter.value, adepthub),
         ContributeCommand.using(adepthub),
+        InfoCommand.using(adeptLockfileGetter.value, adepthub),
+        RmCommand.using(adeptLockfileGetter.value, adepthub),
         IvyInstallCommand.using(confs, adeptLockfileGetter.value, adepthub))
 
       def adepthubTokenizer = (Space ~> adeptCommands.reduce(_ | _))

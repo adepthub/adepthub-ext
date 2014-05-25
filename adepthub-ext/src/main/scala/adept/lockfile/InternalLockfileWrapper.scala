@@ -35,6 +35,11 @@ private[adept] object InternalLockfileWrapper { //All of these visibility limita
     Set() ++ lockfile.requirements.asScala.map(asCoreRequirement)
   }
 
+  def info(lockfile: Lockfile) = {
+    Set() ++ lockfile.context.asScala.map(_.info)
+  }
+
+  
   def context(lockfile: Lockfile) = {
     Set() ++ lockfile.context.asScala.map(asCoreContext)
   }
