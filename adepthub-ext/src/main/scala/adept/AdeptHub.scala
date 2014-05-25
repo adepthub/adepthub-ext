@@ -259,7 +259,7 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
         val repository = new GitRepository(baseDir, locations.name)
         commit match {
           case Some(commit) =>
-            !repository.hasCommit(commit)
+            !(repository.exists && repository.hasCommit(commit))
           case None =>
             false
         }
