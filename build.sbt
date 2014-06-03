@@ -8,7 +8,7 @@ val jvmTarget = "1.6"
 
 incOptions := incOptions.value.withNameHashing(true)
 
-lazy val adeptVersion = "0.9.2.4"
+lazy val adeptVersion = "0.9.2.5"
 
 lazy val adepthubOrg = "com.adepthub"
 
@@ -48,5 +48,8 @@ lazy val adepthubSbt = project.in(file("adepthub-sbt")).settings(
   version := adeptVersion,
   organization := adepthubOrg,
   scalacOptions += "-target:jvm-"+jvmTarget,
-  sbtPlugin := true
+  sbtPlugin := true,
+  libraryDependencies ++= Seq(
+    "org.slf4j" % "slf4j-nop" % "1.6.1"
+  )
 ).dependsOn(adepthubExt)
