@@ -19,16 +19,26 @@ object SbtUtils {
 
   /**
    * Calculates which confs extends this conf because if we
-   * change compile, we must update not only compile, but also 
-   * test and runtime becaus test extends (compile, runtime) and 
+   * change compile, we must update not only compile, but also
+   * test and runtime becaus test extends (compile, runtime) and
    * runtime extends (test)
-   * 
+   *
    */
-  def getAllExtendingConfig(conf: sbt.Configuration, ivyConfigurations: Seq[sbt.Configuration]): Seq[sbt.Configuration] = {
-    val current = ivyConfigurations.filter{ descendant =>
-      descendant.extendsConfigs.contains(conf)
+  def getAllExtendingConfig(logger: sbt.Logger, conf: sbt.Configuration, ivyConfigurations: Seq[sbt.Configuration]): Seq[sbt.Configuration] = {
+    def getAllExtendingConfig(conf: sbt.Configuration, ivyConfigurations: Seq[sbt.Configuration]): Seq[sbt.Configuration] = {
+
+      val current = ivyConfigurations.filter { descendant =>
+        descendant.extendsConfigs.contains(conf)
+      }
+      current ++ current.flatMap(c => getAllExtendingConfig(c, ivyConfigurations))
     }
-    current ++ current.flatMap(c => getAllExtendingConfig(c, ivyConfigurations))
+    
+    val all = getAllExtendingConfig(conf, ivyConfigurations)
+    all.filter { conf =>
+      val internal = conf.name.endsWith("-internal")
+      if (internal) logger.debug("Skipping internal configuration: " + conf) //TODO: <-is this right? 
+      !internal
+    }
   }
 
 }

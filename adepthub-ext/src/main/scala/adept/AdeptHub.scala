@@ -156,37 +156,84 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
   val adept = new Adept(baseDir, cacheManager, passphrase, progress)
   def defaultIvy = IvyUtils.load(ivyLogger = IvyUtils.warnIvyLogger)
 
+  def getNewDefaultRequirements(baseIdString: String, variants: Set[Variant], confs: Set[String], lockfile: Lockfile) = {
+    val configuredIds = confs.map(IvyUtils.withConfiguration(Id(baseIdString), _))
+
+    val newRequirements = variants.filter { variant =>
+      configuredIds(variant.id)
+    }.map { variant =>
+      Requirement(variant.id, Set.empty[Constraint], Set.empty) //empty constraints because we use variant hash to chose 
+    }
+
+    val newReqIds = newRequirements.map(_.id)
+    val requirements = newRequirements ++ (InternalLockfileWrapper.requirements(lockfile).filter { req =>
+      //remove old reqs which are overwritten
+      !newReqIds(req.id)
+    })
+    requirements -> newRequirements
+  }
+
+  def getNewDefaultContext(searchResults: Set[SearchResult], lockfile: Lockfile) = {
+    val newInputContext = getContext(searchResults)
+    val newContextIds = newInputContext.map(_.id)
+    newInputContext ++ (InternalLockfileWrapper.context(lockfile).filter { c =>
+      //remove old context values which are overwritten
+      !newContextIds(c.id)
+    })
+  }
+
   def get(name: RepositoryName, locations: Set[String]) = {
-    Get.get(baseDir, passphrase, progress)(name, locations)
+    Get.get(baseDir, passphrase)(name, locations)
   }
 
   def downloadLockfileLocations(newRequirements: Set[Requirement], lockfile: Lockfile) = {
     val newReqIds = newRequirements.map(_.id)
-    InternalLockfileWrapper.locations(lockfile).foreach {
+    val allLocations = InternalLockfileWrapper.locations(lockfile)
+    val required = allLocations.flatMap {
       case (name, id, maybeCommit, locations) =>
         if (!newReqIds(id)) {
           maybeCommit match {
             case Some(commit) =>
               val repository = new GitRepository(baseDir, name)
               if (!(repository.exists && repository.hasCommit(commit))) {
-                get(name, locations)
-              }
-            case None => //pass
+                Some(name -> locations)
+              } else None
+            case None =>
+              None
           }
-        }
+        } else None
+    }
+    if (required.nonEmpty) {
+      progress.beginTask("Fetching lockfile metadata", required.size)
+      required.foreach {
+        case (name, locations) =>
+          get(name, locations)
+          progress.update(1)
+      }
+      progress.endTask()
     }
   }
 
   def downloadLocations(searchResults: Set[SearchResult]) = {
-    searchResults.foreach {
+    val required = searchResults.flatMap {
       case searchResult: ImportSearchResult => //pass
+        None
       case searchResult: GitSearchResult =>
         val repository = new GitRepository(baseDir, searchResult.repository)
         if (!(repository.exists && repository.hasCommit(searchResult.commit))) {
-          get(searchResult.repository, searchResult.locations.toSet)
-        }
+          Some(searchResult.repository -> searchResult.locations.toSet)
+        } else None
       case searchResult: SearchResult =>
         throw new Exception("Found a search result but expected either an import or a git search result: " + searchResult)
+    }
+    if (required.nonEmpty) {
+      progress.beginTask("Fetching search result metadata", required.size)
+      required.foreach {
+        case (name, locations) =>
+          get(name, locations)
+          progress.update(1)
+      }
+      progress.endTask()
     }
   }
 
@@ -235,8 +282,10 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
       if (allowOffline) {
         onlineFuture.recover {
           case e: IOException =>
+            logger.info("Could not get results from AdeptHub.com.")
             Set.empty[GitSearchResult]
           case e: AdeptHubRecoverableException =>
+            logger.info("Could not get results from AdeptHub.com.")
             Set.empty[GitSearchResult]
         }(defaultExecutionContext)
       } else {
@@ -254,7 +303,7 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
     val overriddenContext = GitLoader.applyOverrides(context, overrides)
     val transitiveLocations = GitLoader.computeTransitiveLocations(baseDir, overriddenInputContext, overriddenContext, Some(importsDir))
     val commitsByRepo = overriddenContext.groupBy(_.repository).map { case (repo, values) => repo -> values.map(_.commit) }
-    transitiveLocations.foreach { locations =>
+    val required = transitiveLocations.flatMap { locations =>
       val mustGet = commitsByRepo(locations.name).exists { commit =>
         val repository = new GitRepository(baseDir, locations.name)
         commit match {
@@ -266,11 +315,20 @@ class AdeptHub(val baseDir: File, val importsDir: File, val url: String, val sca
       }
       if (mustGet) {
         if (locations.uris.nonEmpty) {
-          get(locations.name, locations.uris)
+          Some(locations.name -> locations.uris)
         } else {
           throw new Exception("Cannot not clone/pull: " + locations.name + " because there are no locations to download from")
         }
+      } else None
+    }
+    if (required.nonEmpty) {
+      progress.beginTask("Fetching transitive metadata", required.size)
+      required.foreach {
+        case (name, locations) =>
+          get(name, locations)
+          progress.update(1)
       }
+      progress.endTask()
     }
 
     val providedVariants = Set() ++
