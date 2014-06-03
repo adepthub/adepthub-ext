@@ -51,6 +51,7 @@ object AdeptPlugin extends Plugin {
         InstallCommand.using(confs, ivyConfigurations.value, adeptLockfileGetter.value, adepthub),
         IvyInstallCommand.using(confs, ivyConfigurations.value, adeptLockfileGetter.value, adepthub),
         ContributeCommand.using(adepthub),
+        SearchCommand.using(adepthub),
         RmCommand.using(adeptLockfileGetter.value, adepthub),
         InfoCommand.using(adeptLockfileGetter.value, adepthub))
 
