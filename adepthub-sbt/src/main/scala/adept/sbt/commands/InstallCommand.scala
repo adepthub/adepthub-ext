@@ -28,7 +28,7 @@ object InstallCommand {
   import sbt.complete.DefaultParsers._
   import sbt.complete._
 
-  def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String],  ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) = {
+  def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) = {
     ((token("install") ~> (Space ~> NotSpaceClass.+).+).map { args =>
       new InstallCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion, confs, ivyConfigurations, lockfileGetter, adepthub)
     })
@@ -55,9 +55,16 @@ class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVer
       }
     maybeParsedTermTargetConf match {
       case Right((term, targetConf, constraints)) =>
-        val searchResults = adepthub.search(term, constraints, allowLocalOnly = true)
-        val uniqueModule = AdeptHub.getUniqueModule(term, searchResults).fold( errorMsg => Failure(UserInputException(errorMsg)), res => Success(res))
-        
+        val highestSearchResultsOnly = AdeptHub
+          .highestVersionedSearchResults(adepthub.search(term, constraints, allowLocalOnly = true))
+          .toSeq //we loose type-info on toSet :(
+          .flatMap {
+            case (version, searchResults) =>
+              searchResults
+          }.toSet
+
+        val uniqueModule = AdeptHub.getUniqueModule(term, highestSearchResultsOnly).fold(errorMsg => Failure(UserInputException(errorMsg)), res => Success(res))
+
         val result = for {
           (baseIdString, variants) <- uniqueModule
           thisIvyConfig <- AdeptSbtUtils.getTargetConf(ivyConfigurations, targetConf)
@@ -68,10 +75,10 @@ class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVer
             val lockfile = Lockfile.read(lockfileFile)
             val newRequirements = AdeptHub.variantsAsConfiguredRequirements(variants, baseIdString, confs)
             val requirements = AdeptHub.newLockfileRequirements(newRequirements, lockfile)
-            val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(searchResults), lockfile)
+            val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(highestSearchResultsOnly), lockfile)
             val overrides = inputContext //make sure what we want is what we get
             //get new repositories
-            adepthub.downloadLocations(searchResults)
+            adepthub.downloadLocations(highestSearchResultsOnly)
 
             //get lockfile locations:
             adepthub.downloadLockfileLocations(newRequirements, lockfile)
@@ -81,7 +88,7 @@ class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVer
               inputContext = inputContext,
               overrides = overrides,
               scalaBinaryVersion = scalaBinaryVersion,
-              majorJavaVersion= majorJavaVersion,
+              majorJavaVersion = majorJavaVersion,
               minorJavaVersion = minorJavaVersion) match {
                 case Right((resolveResult, lockfile)) =>
                   if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
@@ -99,15 +106,15 @@ class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVer
                 Success(targetConf -> msg)
               case something => throw new Exception("Expected a right here but got: " + something + " in " + results)
             }
-            Success(msgs.map{ case Success((conf, msg)) => conf + ": " + msg}.mkString("\n"))
+            Success(msgs.map { case Success((conf, msg)) => conf + ": " + msg }.mkString("\n"))
           } else {
             val msgs = results.collect {
               case Left(msg) => msg
             }
             Failure(UserInputException(msgs.map { case (conf, msg) => "For: " + conf + " got:\n" + msg }.mkString("\n")))
           }
-        }//yield ends here...
-        
+        } //yield ends here...
+
         result.flatten match {
           case Success(msg) =>
             logger.info(msg)

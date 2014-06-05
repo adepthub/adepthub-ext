@@ -76,6 +76,20 @@ import scala.util.Success
 import scala.util.Failure
 
 object AdeptHub {
+
+  def highestVersionedSearchResults(searchResults: Set[SearchResult]) = {
+    searchResults
+      .groupBy(r => VersionRank.getVersion(r.variant))
+      .toVector
+      .sortBy { case (version, _) => version }
+      .lastOption.flatMap {
+        case (maybeVersion, results) =>
+          maybeVersion.map{ version =>
+            version -> results
+          }
+      }
+  }
+
   def getUniqueModule(expression: String, searchResults: Set[SearchResult]): Either[String, (String, Set[Variant])] = {
     val modules = Module.getModules(searchResults.map(_.variant))
     if (modules.size == 0) {
