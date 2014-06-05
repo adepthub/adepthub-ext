@@ -121,7 +121,7 @@ private object APIExample extends App { //TODO: move to other project
     val downloadTimeoutMinutes = 10
     val downloadResults = lockfile.download(adepthub.baseDir, downloadTimeoutMinutes, 
         java.util.concurrent.TimeUnit.MINUTES, 5, 
-        //see issue 
+        //see issue for more info on logging/progress: https://github.com/adept-dm/adept/issues/35
         new adept.logging.TextLogger(adept.logging.TextLogger.INFO), 
         new adept.progress.TextProgressMonitor)
     import collection.JavaConverters._
