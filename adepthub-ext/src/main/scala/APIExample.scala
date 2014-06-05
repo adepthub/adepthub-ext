@@ -5,6 +5,7 @@ import scala.util.Success
 import adept.ext.JavaVersions
 
 private object APIExample extends App { //TODO: move to other project
+  import adept.ext.AttributeDefaults
   import adept.lockfile.Lockfile
   import adept.resolution.models._
   import adept.{ Defaults, AdeptHub }
@@ -22,7 +23,6 @@ private object APIExample extends App { //TODO: move to other project
 
   //search a module and render results
   {
-    import adept.ext.AttributeDefaults
     val term = "com.typesafe.play/play-json" + Id.Sep //<- hit only exact
     val searchResults = adepthub.search(term)
     println(AdeptHub.renderSearchResults(searchResults, term))
@@ -30,7 +30,6 @@ private object APIExample extends App { //TODO: move to other project
 
   //search a module and render results for a specific version
   {
-    import adept.ext.AttributeDefaults
     val term = "com.typesafe.play/play-json" + Id.Sep //<- hit only exact
     val searchResults = adepthub.search(term, Set(Constraint(AttributeDefaults.VersionAttribute, Set("2.2.0"))))
     println(AdeptHub.renderSearchResults(searchResults, term))
@@ -38,7 +37,6 @@ private object APIExample extends App { //TODO: move to other project
 
   //End-to-end - for only resolution see resolve method below
   {
-    import adept.ext.AttributeDefaults
     //INPUT START
     val term = "com.typesafe.play/play-json" + Id.Sep //<-- specified string
     val constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set("2.2.0"))) //<-- constrain to only 2.2.0
