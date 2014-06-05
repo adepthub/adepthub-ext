@@ -8,7 +8,7 @@ val jvmTarget = "1.6"
 
 incOptions := incOptions.value.withNameHashing(true)
 
-lazy val adeptVersion = "0.9.2.5"
+lazy val adeptVersion = "0.9.2.6"
 
 lazy val adepthubOrg = "com.adepthub"
 
