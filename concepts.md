@@ -52,7 +52,7 @@ The algorithm is built as follows:
 The benefits of Adepts resolution engine is that it is very regular (no exceptions to the rules), yet flexible.
 
 Other benefits is that it maps better to many "corner-cases" seen regularly in dependency management. 
-An example is circular dependencies, commonly (but not exclusively) seen in bootstrapped libraries. For Ivy/Maven this quickly becomes hairy: which version should override the other in such a setting? What if something else overrides the version as well? What came first, which will version should be used? In Adept, this issue is non-existent: either exactly one variant is resolved or it is not. If a transitive, circular requirement adds constraints, making it over-constrained then the result is over-constrained. If not, we know which variant(s) remain as candidate(s) and continue.
+An example is circular dependencies, commonly (but not exclusively) seen in bootstrapped libraries. For Ivy/Maven this quickly becomes hairy: which version should override the other in such a setting? What if something else overrides the version as well? What came first, which version should be used? In Adept, this issue is non-existent: either exactly one variant is resolved or it is not. If a transitive, circular requirement adds constraints, making it over-constrained then the result is over-constrained. If not, we know which variant(s) remain as candidate(s) and continue.
 
 
 #### Lockfile
