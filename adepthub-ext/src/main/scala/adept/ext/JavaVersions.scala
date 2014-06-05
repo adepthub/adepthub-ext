@@ -85,7 +85,7 @@ object JavaVersions {
           Attribute(AttributeDefaults.BinaryVersionAttribute, binaryVersions),
           Attribute(ConfigurationHelpers.ConfigurationAttribute, Set("system"))),
       Set.empty))
-    Module.modularise(jvmBaseId, variants).values
+    Set() ++ Module.modularise(jvmBaseId, variants).values
   }
 
   def getRequirement(major: Int, minor: Int) = {

@@ -86,8 +86,7 @@ class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVer
             //get lockfile locations:
             adepthub.downloadLockfileLocations(newRequirements, lockfile)
 
-            val javaVariants = Set() ++
-              JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
+            val javaVariants = JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
             val sbtRequirements = Set() +
               JavaVersions.getRequirement(majorJavaVersion, minorJavaVersion) ++
               ScalaBinaryVersionConverter.getRequirement(scalaBinaryVersion)

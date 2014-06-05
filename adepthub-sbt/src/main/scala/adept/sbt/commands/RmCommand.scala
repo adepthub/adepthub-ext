@@ -67,8 +67,7 @@ class RmCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion:
                 logger.info(s"Could not find any requirements matching '$expression' in $conf")
                 Left()
               } else {
-                val javaVariants = Set() ++
-                  JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
+                val javaVariants = JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
                 val sbtRequirements = Set() +
                   JavaVersions.getRequirement(majorJavaVersion, minorJavaVersion) ++
                   ScalaBinaryVersionConverter.getRequirement(scalaBinaryVersion)
