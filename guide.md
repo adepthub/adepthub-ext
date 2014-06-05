@@ -138,9 +138,9 @@ result.foreach {
 ```
 
 
-## Step 2c: Constructing classpaths without resolving
-After a successful resolution you will typically have a lockfile as described in step 2b.
-Each time a user starts up their application, the build tool should check if all artifacts are cached and download those which are not.
+## Step 1/4: Constructing classpaths without resolving
+This step could be either done right on startup (if a lockfile exists) or after a new lockfile is generated and the artifacts are required.
+
 Below is an example of how to construct a classpath using the lockfile.
 
 ```scala
