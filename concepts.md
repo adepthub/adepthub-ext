@@ -26,7 +26,7 @@ For Ivy and Maven "dependencies" makes more sense, because they would typically 
 *the circumstances that form the setting for an event, statement, or idea, and in terms of which it can be fully understood*
     
 In Adept, metadata is versioned in Git. The context tells Adept what actual Git commit and even which variant should be used as input for resolution. This makes Adept reliable because for the same requirements and context, a resolution result will **always** be the same (given that the resolution engine is the same and that the metadata is indeed available).
-Currently the context (i.e. the metadata) must be available locally to Adept, but AdeptHub does this for you.
+Currently the context (i.e. the metadata) must be available locally to Adept, but adepthub-ext has helpers to help with this.
 
 In Adept we have: 
 **requirements X context = result**
