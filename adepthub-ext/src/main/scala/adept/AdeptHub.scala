@@ -299,7 +299,7 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
     Search.mergeSearchResults(imports = importResults, offline = offlineResults, online = Await.result(onlineResults, onlineTimeout), alwaysIncludeImports)
   }
 
-  def resolve(requirements: Set[Requirement], inputContext: Set[ResolutionResult], scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, overrides: Set[ResolutionResult] = Set.empty): Either[ResolveResult, (ResolveResult, Lockfile)] = {
+  def resolve(requirements: Set[Requirement], inputContext: Set[ResolutionResult], overrides: Set[ResolutionResult] = Set.empty, providedVariants: Set[Variant] = Set.empty): Either[ResolveResult, (ResolveResult, Lockfile)] = {
     val overriddenInputContext = GitLoader.applyOverrides(inputContext, overrides)
     val context = GitLoader.computeTransitiveContext(baseDir, overriddenInputContext, Some(importsDir))
     val overriddenContext = GitLoader.applyOverrides(context, overrides) //apply overrides again in case something transitive needs to be overridden
@@ -333,13 +333,7 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
       progress.endTask()
     }
 
-    val providedVariants = Set() ++
-      JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
-    val providedRequirements = Set() +
-      JavaVersions.getRequirement(majorJavaVersion, minorJavaVersion) ++
-      ScalaBinaryVersionConverter.getRequirement(scalaBinaryVersion)
-
-    val mergedRequirements = (requirements ++ providedRequirements) //easier now and for ever after if requirements are merged into one id, with a set of constraints
+    val mergedRequirements = requirements //easier now and for ever after if requirements are merged into one id, with a set of constraints
       .groupBy(_.id)
       .map {
         case (id, reqs) =>

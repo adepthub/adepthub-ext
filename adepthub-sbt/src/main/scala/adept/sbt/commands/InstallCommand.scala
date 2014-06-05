@@ -23,6 +23,7 @@ import scala.util.Failure
 import adept.sbt.UserInputException
 import adept.sbt.AdeptSbtUtils
 import adept.sbt.UserInputException
+import adept.ext.JavaVersions
 
 object InstallCommand {
   import sbt.complete.DefaultParsers._
@@ -55,14 +56,16 @@ class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVer
       }
     maybeParsedTermTargetConf match {
       case Right((term, targetConf, constraints)) =>
-        val highestSearchResultsOnly = AdeptHub
-          .highestVersionedSearchResults(adepthub.search(term, constraints, allowLocalOnly = true))
-          .toSeq //we loose type-info on toSet :(
-          .flatMap {
-            case (version, searchResults) =>
-              searchResults
-          }.toSet
-
+        val highestSearchResultsOnly = {
+          val allSearchResults = adepthub.search(term, constraints, allowLocalOnly = true)
+          AdeptHub
+            .highestVersionedSearchResults(allSearchResults)
+            .toSeq //we loose type-info on toSet :(
+            .flatMap {
+              case (version, searchResults) =>
+                searchResults
+            }.toSet
+        }
         val uniqueModule = AdeptHub.getUniqueModule(term, highestSearchResultsOnly).fold(errorMsg => Failure(UserInputException(errorMsg)), res => Success(res))
 
         val result = for {
@@ -83,13 +86,17 @@ class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVer
             //get lockfile locations:
             adepthub.downloadLockfileLocations(newRequirements, lockfile)
 
+            val javaVariants = Set() ++
+              JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
+            val sbtRequirements = Set() +
+              JavaVersions.getRequirement(majorJavaVersion, minorJavaVersion) ++
+              ScalaBinaryVersionConverter.getRequirement(scalaBinaryVersion)
+
             val result = adepthub.resolve(
-              requirements = requirements,
+              requirements = requirements ++ sbtRequirements,
               inputContext = inputContext,
               overrides = overrides,
-              scalaBinaryVersion = scalaBinaryVersion,
-              majorJavaVersion = majorJavaVersion,
-              minorJavaVersion = minorJavaVersion) match {
+              providedVariants = javaVariants) match {
                 case Right((resolveResult, lockfile)) =>
                   if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
                   val msg = "installed " + baseIdString + " (" + variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(variant.toString)).mkString("\n") + ")"

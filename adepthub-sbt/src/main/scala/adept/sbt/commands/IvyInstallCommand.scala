@@ -23,6 +23,7 @@ import adept.sbt.AdeptSbtUtils
 import adept.sbt.UserInputException
 import scala.util.Try
 import adept.sbt.UserInputException
+import adept.ext.JavaVersions
 
 object IvyInstallCommand {
   import sbt.complete.DefaultParsers._
@@ -122,13 +123,17 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
               //get lockfile locations:
               adepthub.downloadLockfileLocations(newRequirements, lockfile)
 
+              val javaVariants = Set() ++
+                JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
+              val sbtRequirements = Set() +
+                JavaVersions.getRequirement(majorJavaVersion, minorJavaVersion) ++
+                ScalaBinaryVersionConverter.getRequirement(scalaBinaryVersion)
+
               val result = adepthub.resolve(
-                requirements = requirements,
+                requirements = requirements ++ sbtRequirements,
                 inputContext = inputContext,
                 overrides = overrides,
-                scalaBinaryVersion = scalaBinaryVersion,
-                majorJavaVersion = majorJavaVersion,
-                minorJavaVersion = minorJavaVersion) match {
+                providedVariants = javaVariants) match {
                   case Right((resolveResult, lockfile)) =>
                     if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
                     adepthub.writeLockfile(lockfile, lockfileFile)

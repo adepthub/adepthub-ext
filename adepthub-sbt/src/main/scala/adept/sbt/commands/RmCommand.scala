@@ -18,6 +18,7 @@ import adept.sbt.SbtUtils
 import adept.ivy.IvyConstants
 import adept.ext.AttributeDefaults
 import adept.sbt.AdeptKeys
+import adept.ext.JavaVersions
 
 object RmCommand {
   import sbt.complete.DefaultParsers._
@@ -58,7 +59,7 @@ class RmCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion:
               val requirements = InternalLockfileWrapper.requirements(lockfile)
               val inputContext = InternalLockfileWrapper.context(lockfile)
               val overrides = inputContext
-              
+
               val (removeRequirements, keepRequirements) = requirements.partition { requirement =>
                 adepthub.matches(expression, requirement.id)
               }
@@ -66,13 +67,17 @@ class RmCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion:
                 logger.info(s"Could not find any requirements matching '$expression' in $conf")
                 Left()
               } else {
+                val javaVariants = Set() ++
+                  JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
+                val sbtRequirements = Set() +
+                  JavaVersions.getRequirement(majorJavaVersion, minorJavaVersion) ++
+                  ScalaBinaryVersionConverter.getRequirement(scalaBinaryVersion)
+
                 adepthub.resolve(
-                  requirements = keepRequirements,
+                  requirements = keepRequirements ++ sbtRequirements,
                   inputContext = inputContext,
                   overrides = overrides,
-                  scalaBinaryVersion = scalaBinaryVersion,
-                  majorJavaVersion = majorJavaVersion,
-                  minorJavaVersion = minorJavaVersion) match {
+                  providedVariants = javaVariants) match {
                     case Right((resolveResult, lockfile)) =>
                       if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
                       adepthub.writeLockfile(lockfile, lockfileFile)
