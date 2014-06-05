@@ -19,7 +19,7 @@ import adept.ivy.IvyConstants
 import adept.ext.AttributeDefaults
 import scala.util.Failure
 import scala.util.Success
-import adept.sbt.AdeptUtils
+import adept.sbt.AdeptSbtUtils
 import adept.sbt.UserInputException
 import scala.util.Try
 import adept.sbt.UserInputException
@@ -28,19 +28,18 @@ object IvyInstallCommand {
   import sbt.complete.DefaultParsers._
   import sbt.complete._
 
-  def using(confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) = {
+  def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) = {
     ((token("ivy-install") ~> (Space ~> NotSpaceClass.+).+).map { args =>
-      new IvyInstallCommand(args.map(_.mkString), confs, ivyConfigurations, lockfileGetter, adepthub)
+      new IvyInstallCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion, confs, ivyConfigurations, lockfileGetter, adepthub)
     })
 
   }
 }
 
-class IvyInstallCommand(args: Seq[String], confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
+class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
   def execute(state: State): State = {
     val logger = state.globalLogging.full
     val ivySbt = SbtUtils.evaluateTask(sbt.Keys.ivySbt, SbtUtils.currentProject(state), state)
-    val scalaBinaryVersion = adepthub.scalaBinaryVersion
 
     val (prunedArgs, isForced) = {
       args.filter(_ != "-f") -> args.contains("-f")
@@ -67,7 +66,7 @@ class IvyInstallCommand(args: Seq[String], confs: Set[String], ivyConfigurations
         state.fail
       case Right((targetConf, (org, name, revision))) =>
         ivySbt.withIvy(IvyUtils.errorIvyLogger) { ivy =>
-          val maybeIvyAccepted = adepthub.ivyImport(org, name, revision, confs, ivy = ivy, forceImport = isForced) match {
+          val maybeIvyAccepted = adepthub.ivyImport(org, name, revision, confs, scalaBinaryVersion, ivy = ivy, forceImport = isForced) match {
             case Right(existing) if existing.nonEmpty && !isForced =>
               val alts = Module.getModules(existing.map { searchResult =>
                 searchResult.variant
@@ -92,7 +91,7 @@ class IvyInstallCommand(args: Seq[String], confs: Set[String], ivyConfigurations
               Failure(UserInputException(msg))
             case Right(searchResults) => Success(searchResults)
           }
-
+          
           val result: Try[Try[String]] = for {
             //handle user errors:
             _ <- maybeIvyAccepted
@@ -100,38 +99,42 @@ class IvyInstallCommand(args: Seq[String], confs: Set[String], ivyConfigurations
             importedSearchResults = {
               val constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision)))
               val allSearchResults = adepthub.search(term, constraints,
-                allowOffline = false,
+                allowLocalOnly = false,
                 alwaysIncludeImports = true)
               allSearchResults.filter {
                 case searchResult: ImportSearchResult => true
                 case _ => false
               }
             }
-            (baseIdString, variants) <- AdeptUtils.getModule(term, importedSearchResults)
-            thisIvyConfig <- AdeptUtils.getIvyConf(ivyConfigurations, targetConf)
+            (baseIdString, variants) <- AdeptHub.getUniqueModule(term, importedSearchResults).fold( errorMsg => Failure(UserInputException(errorMsg)), res => Success(res))
+            thisIvyConfig <- AdeptSbtUtils.getTargetConf(ivyConfigurations, targetConf)
           } yield {
             val lockfileFile = lockfileGetter(targetConf)
             val allIvyTargetConfs = SbtUtils.getAllExtendingConfig(logger, thisIvyConfig, ivyConfigurations)
 
             val results = allIvyTargetConfs.map { targetIvyConf =>
               val lockfile = Lockfile.read(lockfileFile)
-              val (requirements, newRequirements) = adepthub.getNewDefaultRequirements(baseIdString, variants, confs, lockfile)
-              val inputContext = adepthub.getNewDefaultContext(importedSearchResults, lockfile)
+              val (requirements, newRequirements) = AdeptHub.newLockfileRequirements(baseIdString, variants, confs, lockfile)
+              val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(importedSearchResults), lockfile)
+              val overrides = inputContext
 
               //get lockfile locations:
               adepthub.downloadLockfileLocations(newRequirements, lockfile)
 
-              val result = adepthub.offlineResolve(
+              val result = adepthub.resolve(
                 requirements = requirements,
                 inputContext = inputContext,
-                overrides = inputContext) match {
+                overrides = overrides,
+                scalaBinaryVersion = scalaBinaryVersion,
+                majorJavaVersion = majorJavaVersion,
+                minorJavaVersion = minorJavaVersion) match {
                   case Right((resolveResult, lockfile)) =>
                     if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
                     adepthub.writeLockfile(lockfile, lockfileFile)
                     val msg = s"Installed $org#$name!$revision"
                     Right((lockfile, targetConf, lockfileFile, msg))
                   case Left(error) =>
-                    Left(targetConf -> AdeptUtils.getErrorReport(error))
+                    Left(targetConf -> AdeptHub.renderErrorReport(requirements, inputContext, overrides, error))
                 }
               result
             }

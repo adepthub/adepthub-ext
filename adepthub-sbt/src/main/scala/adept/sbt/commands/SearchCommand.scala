@@ -17,7 +17,7 @@ import adept.sbt.AdeptDefaults
 import adept.ext.AttributeDefaults
 import adept.sbt.SbtUtils
 import adept.sbt.AdeptKeys
-import adept.sbt.AdeptUtils
+import adept.sbt.AdeptSbtUtils
 import scala.util.Success
 import scala.util.Failure
 import adept.sbt.UserInputException
@@ -39,12 +39,12 @@ class SearchCommand(args: Seq[String], adepthub: AdeptHub) extends AdeptCommand 
 
     val term = args.head
     val constraints = Set.empty[Constraint]
-    val searchResults = adepthub.search(term, constraints, allowOffline = true)
+    val searchResults = adepthub.search(term, constraints, allowLocalOnly = false)
     val modules = searchResults.groupBy(_.variant.attribute(AttributeDefaults.ModuleHashAttribute)).map {
       case (moduleAttribute, searchResults) =>
         val variants = searchResults.map(_.variant)
-        val offline = searchResults.exists{
-          case gitSearchResult: GitSearchResult => gitSearchResult.isOffline
+        val local = searchResults.exists{
+          case gitSearchResult: GitSearchResult => gitSearchResult.isLocal
           case _: ImportSearchResult => true
           case _ => false
         }
@@ -55,11 +55,11 @@ class SearchCommand(args: Seq[String], adepthub: AdeptHub) extends AdeptCommand 
         }
         
         val base = variants.map(_.id.value).reduce(_ intersect _)
-        (base, moduleAttribute, imported, offline) -> variants
+        (base, moduleAttribute, imported, local) -> variants
     }
     val msg = modules.map {
-      case ((base, _, imported, offline), variants) =>
-        val locationString = if (imported) " (imported)" else if (!offline) " (AdeptHub)" else " (offline)" 
+      case ((base, _, imported, local), variants) =>
+        val locationString = if (imported) " (imported)" else if (!local) " (AdeptHub)" else " (local)" 
         base + "\n" + variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(variant.toString)).map("\t" + _).mkString("\n") + locationString
     }.mkString("\n")
 

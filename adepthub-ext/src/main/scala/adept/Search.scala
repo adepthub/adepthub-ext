@@ -58,7 +58,7 @@ private[adept] object Search {
             val jsonString = responseString
             Json.fromJson[Set[GitSearchResult]](Json.parse(jsonString)).asEither match {
               case Right(results) =>
-                results.map(_.copy(isOffline = false))
+                results.map(_.copy(isLocal = false))
               case Left(error) =>
                 throw new Exception("Could not parse AdeptHub response as search results. Got:\n" + responseString)
             }
@@ -74,11 +74,11 @@ private[adept] object Search {
     }(executionContext)
   }
 
-  def searchImportRepository(importsDir: File, adept: Adept)(term: String, name: RepositoryName, constraints: Set[Constraint] = Set.empty): Set[ImportSearchResult] = {
-    val repository = new Repository(importsDir, name)
+  def searchImportRepository(adeptHub: AdeptHub)(term: String, name: RepositoryName, constraints: Set[Constraint] = Set.empty): Set[ImportSearchResult] = {
+    val repository = new Repository(adeptHub.importsDir, name)
     if (repository.exists) {
       VariantMetadata.listIds(repository).flatMap { id =>
-        if (adept.matches(term, id)) {
+        if (adeptHub.matches(term, id)) {
           val variants = RankingMetadata.listRankIds(id, repository).flatMap { rankId =>
             val ranking = RankingMetadata.read(id, rankId, repository)
               .getOrElse(throw new Exception("Could not read rank id: " + (id, rankId, repository.dir.getAbsolutePath)))
@@ -104,9 +104,9 @@ private[adept] object Search {
     }
   }
 
-  def searchImport(importsDir: File, adept: Adept)(term: String, constraints: Set[Constraint] = Set.empty): Set[ImportSearchResult] = {
-    Repository.listRepositories(importsDir).flatMap { name =>
-      searchImportRepository(importsDir, adept)(term, name, constraints)
+  def searchImports(adeptHub: AdeptHub)(term: String, constraints: Set[Constraint] = Set.empty): Set[ImportSearchResult] = {
+    Repository.listRepositories(adeptHub.importsDir).flatMap { name =>
+      searchImportRepository(adeptHub)(term, name, constraints)
     }
   }
 }

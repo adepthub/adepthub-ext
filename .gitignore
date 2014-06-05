@@ -43,3 +43,6 @@ tmp
 imports/**
 adepthub-ext/imports/**
 .ivy2-adept
+
+# Sample
+adepthub-sbt-sample/project/adept/**

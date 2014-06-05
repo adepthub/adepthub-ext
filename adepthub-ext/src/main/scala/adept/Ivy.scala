@@ -9,13 +9,14 @@ import org.eclipse.jgit.lib.ProgressMonitor
 import adept.resolution.models.Constraint
 import adept.ext.AttributeDefaults
 import adept.ivy.IvyConstants
+import java.io.File
 
 private[adept] object Ivy {
-  def getExisting(adeptHub: AdeptHub)(org: String, name: String, revision: String, configurations: Set[String]) = {
+  def getExisting(adeptHub: AdeptHub, scalaBinaryVersion: String)(org: String, name: String, revision: String, configurations: Set[String]) = {
     val id = ScalaBinaryVersionConverter.extractId(IvyUtils.ivyIdAsId(org, name))
     val repositoryName = IvyUtils.ivyIdAsRepositoryName(org)
     val configuredIds = configurations.map(IvyUtils.withConfiguration(id, _))
-    val searchResults = adeptHub.search(id.value, constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))), allowOffline = false)
+    val searchResults = adeptHub.search(id.value, constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))), allowLocalOnly = false)
     val modules = searchResults.groupBy(_.variant.attribute(AttributeDefaults.ModuleHashAttribute))
     val foundMatchingVariants = modules.filter {
       case (_, results) =>
@@ -23,7 +24,7 @@ private[adept] object Ivy {
         val matchingScala = results.filter { result =>
           !result.variant.requirements.exists { requirement =>
             if (ScalaBinaryVersionConverter.scalaLibIds(requirement.id)) {
-              requirement.constraint(AttributeDefaults.BinaryVersionAttribute) != Constraint(AttributeDefaults.BinaryVersionAttribute, Set(adeptHub.scalaBinaryVersion))
+              requirement.constraint(AttributeDefaults.BinaryVersionAttribute) != Constraint(AttributeDefaults.BinaryVersionAttribute, Set(scalaBinaryVersion))
             } else {
               false
             }
@@ -37,9 +38,9 @@ private[adept] object Ivy {
     foundMatchingVariants
   }
 
-  def ivyImport(adept: Adept, adeptHub: AdeptHub, progress: ProgressMonitor)(org: String, name: String, revision: String, ivy: _root_.org.apache.ivy.Ivy = adeptHub.defaultIvy, useScalaConvert: Boolean = true, forceImport: Boolean = false) = {
+  def ivyImport(adeptHub: AdeptHub)(org: String, name: String, revision: String, ivy: _root_.org.apache.ivy.Ivy = adeptHub.defaultIvy, useScalaConvert: Boolean = true, forceImport: Boolean = false) = {
     val ivyAdeptConverter = new IvyAdeptConverter(ivy)
-    ivyAdeptConverter.ivyImport(org, name, revision, progress) match {
+    ivyAdeptConverter.ivyImport(org, name, revision, adeptHub.progress) match {
       case Right(ivyResults) =>
         val convertedIvyResults = if (useScalaConvert) {
           ivyResults.map { ivyImportResult =>
@@ -47,7 +48,7 @@ private[adept] object Ivy {
           }
         } else ivyResults
 
-        IvyImportResultInserter.insertAsResolutionResults(adeptHub.importsDir, adeptHub.baseDir, convertedIvyResults, progress)
+        IvyImportResultInserter.insertAsResolutionResults(adeptHub.importsDir, adeptHub.baseDir, convertedIvyResults, adeptHub.progress)
         Right()
       case Left(errors) => Left(errors)
     }

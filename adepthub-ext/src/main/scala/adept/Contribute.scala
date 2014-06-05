@@ -14,6 +14,10 @@ import play.api.libs.json.Json
 import adepthub.models.ContributionResult
 import adept.repository.GitRepository
 import org.eclipse.jgit.lib.ProgressMonitor
+import adept.lockfile.{Commit => LockfileCommit}
+import adept.lockfile.{RepositoryLocation => LockfileRepositoryLocation}
+import adept.lockfile.LockfileContext
+import adept.lockfile.Lockfile
 
 object Contribute extends Logging {
 
@@ -55,6 +59,23 @@ object Contribute extends Logging {
       zipOutput.close()
     }
   }
+  
+  def updateWithContributions(lockfile: Lockfile, contributions: Set[ContributionResult]) = {
+    import collection.JavaConverters._
+    val contributionByRepos = contributions.groupBy(_.repository)
+    val updatedContext = lockfile.getContext.asScala.map { value =>
+      contributionByRepos.get(adept.repository.models.RepositoryName(value.repository.value)) match {
+        case Some(matchingContribs) =>
+          if (matchingContribs.size != 1) throw new Exception("Got more than one contribution per repository. This is unexpected so we fail. Contributions:\n" + contributions.mkString("\n"))
+          val matchingContrib = matchingContribs.head
+           new LockfileContext(value.info, value.id, value.repository, matchingContrib.locations.map{ new LockfileRepositoryLocation(_) }.toSet.asJava, new LockfileCommit(matchingContrib.commit.value), value.hash)
+        case None =>
+          value
+      }
+    }
+    new Lockfile(lockfile.getRequirements, updatedContext.asJava, lockfile.getArtifacts)
+  }
+
 
   def sendFile(url: String, baseDir: File, passphrase: Option[String], progress: ProgressMonitor)( file: File) = {
     ///TODO: future me, I present my sincere excuses for this code: http client sucks!

@@ -17,24 +17,26 @@ import adept.sbt.AdeptDefaults
 import adept.ext.AttributeDefaults
 import adept.sbt.SbtUtils
 import adept.sbt.AdeptKeys
-import adept.sbt.AdeptUtils
+import adept.sbt.AdeptSbtUtils
 import scala.util.Success
 import scala.util.Failure
+import adept.sbt.UserInputException
+import adept.sbt.AdeptSbtUtils
 import adept.sbt.UserInputException
 
 object InstallCommand {
   import sbt.complete.DefaultParsers._
   import sbt.complete._
 
-  def using(confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) = {
+  def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String],  ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) = {
     ((token("install") ~> (Space ~> NotSpaceClass.+).+).map { args =>
-      new InstallCommand(args.map(_.mkString), confs, ivyConfigurations, lockfileGetter, adepthub)
+      new InstallCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion, confs, ivyConfigurations, lockfileGetter, adepthub)
     })
 
   }
 }
 
-class InstallCommand(args: Seq[String], confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
+class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
   def execute(state: State): State = {
     val logger = state.globalLogging.full
     val defaultConf = "compile" //TODO: setting
@@ -53,35 +55,40 @@ class InstallCommand(args: Seq[String], confs: Set[String], ivyConfigurations: S
       }
     maybeParsedTermTargetConf match {
       case Right((term, targetConf, constraints)) =>
-        val searchResults = adepthub.search(term, constraints, allowOffline = true)
+        val searchResults = adepthub.search(term, constraints, allowLocalOnly = true)
+        val uniqueModule = AdeptHub.getUniqueModule(term, searchResults).fold( errorMsg => Failure(UserInputException(errorMsg)), res => Success(res))
+        
         val result = for {
-          (baseIdString, variants) <- AdeptUtils.getModule(term, searchResults)
-          thisIvyConfig <- AdeptUtils.getIvyConf(ivyConfigurations, targetConf)
+          (baseIdString, variants) <- uniqueModule
+          thisIvyConfig <- AdeptSbtUtils.getTargetConf(ivyConfigurations, targetConf)
         } yield {
           val allIvyTargetConfs = Seq(thisIvyConfig) ++ SbtUtils.getAllExtendingConfig(logger, thisIvyConfig, ivyConfigurations)
           val results = allIvyTargetConfs.map { targetIvyConf => //TODO: extract methods below - this is too much for me to read!
             val lockfileFile = lockfileGetter(targetIvyConf.name)
             val lockfile = Lockfile.read(lockfileFile)
 
-            val (requirements, newRequirements) = adepthub.getNewDefaultRequirements(baseIdString, variants, confs, lockfile)
-            val inputContext = adepthub.getNewDefaultContext(searchResults, lockfile)
-
+            val (requirements, newRequirements) = AdeptHub.newLockfileRequirements(baseIdString, variants, confs, lockfile)
+            val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(searchResults), lockfile)
+            val overrides = inputContext //make sure what we want is what we get
             //get new repositories
             adepthub.downloadLocations(searchResults)
 
             //get lockfile locations:
             adepthub.downloadLockfileLocations(newRequirements, lockfile)
 
-            val result = adepthub.offlineResolve(
+            val result = adepthub.resolve(
               requirements = requirements,
               inputContext = inputContext,
-              overrides = inputContext) match {
+              overrides = overrides,
+              scalaBinaryVersion = scalaBinaryVersion,
+              majorJavaVersion= majorJavaVersion,
+              minorJavaVersion = minorJavaVersion) match {
                 case Right((resolveResult, lockfile)) =>
                   if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
                   val msg = "installed " + baseIdString + " (" + variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(variant.toString)).mkString("\n") + ")"
                   Right((lockfile, targetIvyConf.name, lockfileFile, msg))
                 case Left(error) =>
-                  Left(targetConf -> AdeptUtils.getErrorReport(error))
+                  Left(targetConf -> AdeptHub.renderErrorReport(requirements, inputContext, overrides, error))
               }
             result
           }
@@ -99,7 +106,8 @@ class InstallCommand(args: Seq[String], confs: Set[String], ivyConfigurations: S
             }
             Failure(UserInputException(msgs.map { case (conf, msg) => "For: " + conf + " got:\n" + msg }.mkString("\n")))
           }
-        }
+        }//yield ends here...
+        
         result.flatten match {
           case Success(msg) =>
             logger.info(msg)

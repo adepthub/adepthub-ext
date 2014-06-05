@@ -9,7 +9,7 @@ sealed class SearchResult(val variant: Variant, val rankId: RankId, val reposito
 
 case class ImportSearchResult(override val variant: Variant, override val rankId: RankId, override val repository: RepositoryName) extends SearchResult(variant, rankId, repository, isImport = true)
 
-case class GitSearchResult(override val variant: Variant, override val rankId: RankId, override val repository: RepositoryName, commit: Commit, locations: Seq[String], isOffline: Boolean = false) extends SearchResult(variant, rankId, repository, isImport = false)
+case class GitSearchResult(override val variant: Variant, override val rankId: RankId, override val repository: RepositoryName, commit: Commit, locations: Seq[String], isLocal: Boolean = false) extends SearchResult(variant, rankId, repository, isImport = false)
 
 object GitSearchResult {
   import play.api.libs.json.Format

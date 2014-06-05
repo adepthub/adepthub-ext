@@ -23,14 +23,14 @@ object RmCommand {
   import sbt.complete.DefaultParsers._
   import sbt.complete._
 
-  def using(lockfileGetter: String => File, adepthub: AdeptHub) = {
+  def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, lockfileGetter: String => File, adepthub: AdeptHub) = {
     ((token("rm") ~> (Space ~> NotSpaceClass.+).+).map { args =>
-      new RmCommand(args.map(_.mkString), lockfileGetter, adepthub)
+      new RmCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion, lockfileGetter, adepthub)
     })
   }
 }
 
-class RmCommand(args: Seq[String], lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
+class RmCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
   def execute(state: State): State = {
     val logger = state.globalLogging.full
     val lockfiles = SbtUtils.evaluateTask(AdeptKeys.adeptLockfiles, SbtUtils.currentProject(state), state)
@@ -48,7 +48,7 @@ class RmCommand(args: Seq[String], lockfileGetter: String => File, adepthub: Ade
           !existingLockfileConfs.contains(conf)
         }
         nonExistigConf match {
-        case Some(conf)=>
+          case Some(conf) =>
             logger.error(s"Cannot find a lockfile for $conf")
             state.fail
           case None =>
@@ -57,26 +57,31 @@ class RmCommand(args: Seq[String], lockfileGetter: String => File, adepthub: Ade
               val lockfile = Lockfile.read(lockfileFile)
               val requirements = InternalLockfileWrapper.requirements(lockfile)
               val inputContext = InternalLockfileWrapper.context(lockfile)
+              val overrides = inputContext
+              
               val (removeRequirements, keepRequirements) = requirements.partition { requirement =>
-                adepthub.adept.matches(expression, requirement.id)
+                adepthub.matches(expression, requirement.id)
               }
               if (removeRequirements.isEmpty) {
                 logger.info(s"Could not find any requirements matching '$expression' in $conf")
                 Left()
               } else {
-                adepthub.offlineResolve(
+                adepthub.resolve(
                   requirements = keepRequirements,
                   inputContext = inputContext,
-                  overrides = inputContext) match {
+                  overrides = overrides,
+                  scalaBinaryVersion = scalaBinaryVersion,
+                  majorJavaVersion = majorJavaVersion,
+                  minorJavaVersion = minorJavaVersion) match {
                     case Right((resolveResult, lockfile)) =>
                       if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
                       adepthub.writeLockfile(lockfile, lockfileFile)
                       logger.info(s"In $conf removed:\n" + removeRequirements.map(_.id.value).mkString("\n"))
                       Right()
-                    case Left(error) =>
-                      val resolveState = error.result.state
+                    case Left(result) =>
+                      val resolveState = result.state
                       logger.error("Got an error while resolving so could not remove:\n" + removeRequirements.map(_.id.value).mkString("\n"))
-                      logger.debug(error.message)
+                      logger.debug(AdeptHub.renderErrorReport(requirements, inputContext, overrides, result).msg)
                       Left()
                   }
               }

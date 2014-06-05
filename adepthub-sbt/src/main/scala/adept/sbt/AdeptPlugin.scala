@@ -46,13 +46,13 @@ object AdeptPlugin extends Plugin {
       val cacheManager = CacheManager.create()
       //(val baseDir: File, val importsDir: File, val url: String, val scalaBinaryVersion: String, val cacheManager: CacheManager
       val (majorJavaVersion, minorJavaVersion) = JavaVersions.getMajorMinorVersion(this.getClass, this.getClass().getClassLoader())
-      val adepthub = new AdeptHub(baseDir, importsDir, url, scalaBinaryVersion, majorJavaVersion, minorJavaVersion, cacheManager)
+      val adepthub = new AdeptHub(baseDir, importsDir, cacheManager)
       lazy val adeptCommands = Seq(
-        InstallCommand.using(confs, ivyConfigurations.value, adeptLockfileGetter.value, adepthub),
-        IvyInstallCommand.using(confs, ivyConfigurations.value, adeptLockfileGetter.value, adepthub),
+        InstallCommand.using(scalaBinaryVersion, majorJavaVersion, minorJavaVersion, confs, ivyConfigurations.value, adeptLockfileGetter.value, adepthub),
+        IvyInstallCommand.using(scalaBinaryVersion, majorJavaVersion, minorJavaVersion, confs, ivyConfigurations.value, adeptLockfileGetter.value, adepthub),
         ContributeCommand.using(adepthub),
         SearchCommand.using(adepthub),
-        RmCommand.using(adeptLockfileGetter.value, adepthub),
+        RmCommand.using(scalaBinaryVersion, majorJavaVersion, minorJavaVersion, adeptLockfileGetter.value, adepthub),
         InfoCommand.using(adeptLockfileGetter.value, adepthub))
 
       def adepthubTokenizer = (Space ~> adeptCommands.reduce(_ | _))
