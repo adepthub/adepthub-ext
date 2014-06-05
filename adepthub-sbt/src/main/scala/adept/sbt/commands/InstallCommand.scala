@@ -66,8 +66,8 @@ class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVer
           val results = allIvyTargetConfs.map { targetIvyConf => //TODO: extract methods below - this is too much for me to read!
             val lockfileFile = lockfileGetter(targetIvyConf.name)
             val lockfile = Lockfile.read(lockfileFile)
-
-            val (requirements, newRequirements) = AdeptHub.newLockfileRequirements(baseIdString, variants, confs, lockfile)
+            val newRequirements = AdeptHub.variantsAsConfiguredRequirements(variants, baseIdString, confs)
+            val requirements = AdeptHub.newLockfileRequirements(newRequirements, lockfile)
             val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(searchResults), lockfile)
             val overrides = inputContext //make sure what we want is what we get
             //get new repositories
@@ -87,8 +87,8 @@ class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVer
                   if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
                   val msg = "installed " + baseIdString + " (" + variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(variant.toString)).mkString("\n") + ")"
                   Right((lockfile, targetIvyConf.name, lockfileFile, msg))
-                case Left(error) =>
-                  Left(targetConf -> AdeptHub.renderErrorReport(requirements, inputContext, overrides, error))
+                case Left(result) =>
+                  Left(targetConf -> AdeptHub.renderErrorReport(result, requirements, inputContext, overrides))
               }
             result
           }

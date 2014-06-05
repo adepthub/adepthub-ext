@@ -24,12 +24,13 @@ import adept.resolution.models.Requirement
 import adept.repository.GitLoader
 import adept.resolution.Resolver
 
+//TODO: move adept-core
 class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String] = None, progress: ProgressMonitor = new TextProgressMonitor) extends Logging {
 
   private[adept] def matches(term: String, id: Id) = {
     (id.value + Id.Sep).contains(term)
   }
-  
+
   def localResolve(requirements: Set[Requirement], inputContext: Set[ResolutionResult], overriddenInputContext: Set[ResolutionResult], overriddenContext: Set[ResolutionResult], providedVariants: Set[Variant], overrides: Set[ResolutionResult] = Set.empty, unversionedBaseDirs: Set[File] = Set.empty) = {
     val loader = new GitLoader(baseDir, overriddenContext, cacheManager = cacheManager, unversionedBaseDirs = unversionedBaseDirs, loadedVariants = providedVariants, progress = progress)
     val resolver = new Resolver(loader)
@@ -64,7 +65,7 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
             ranking.variants.map { hash =>
               VariantMetadata.read(id, hash, repository, commit).map(_.toVariant(id))
                 .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash, repository.dir.getAbsolutePath, commit)))
-            }.find { variant =>
+            }.filter { variant =>
               constraints.isEmpty ||
                 AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
             }.map {
@@ -74,7 +75,7 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
 
           variants.map {
             case (variant, rankId) =>
-              GitSearchResult(variant, rankId, repository.name, commit, locations, isLocal= true)
+              GitSearchResult(variant, rankId, repository.name, commit, locations, isLocal = true)
           }
         } else {
           Set.empty[GitSearchResult]

@@ -81,7 +81,7 @@ class RmCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion:
                     case Left(result) =>
                       val resolveState = result.state
                       logger.error("Got an error while resolving so could not remove:\n" + removeRequirements.map(_.id.value).mkString("\n"))
-                      logger.debug(AdeptHub.renderErrorReport(requirements, inputContext, overrides, result).msg)
+                      logger.debug(AdeptHub.renderErrorReport(result, requirements, inputContext, overrides).msg)
                       Left()
                   }
               }

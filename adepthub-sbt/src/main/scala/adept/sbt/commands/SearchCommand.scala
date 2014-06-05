@@ -40,30 +40,9 @@ class SearchCommand(args: Seq[String], adepthub: AdeptHub) extends AdeptCommand 
     val term = args.head
     val constraints = Set.empty[Constraint]
     val searchResults = adepthub.search(term, constraints, allowLocalOnly = false)
-    val modules = searchResults.groupBy(_.variant.attribute(AttributeDefaults.ModuleHashAttribute)).map {
-      case (moduleAttribute, searchResults) =>
-        val variants = searchResults.map(_.variant)
-        val local = searchResults.exists{
-          case gitSearchResult: GitSearchResult => gitSearchResult.isLocal
-          case _: ImportSearchResult => true
-          case _ => false
-        }
-        val imported = searchResults.exists{
-          case _: ImportSearchResult => true
-          case _: GitSearchResult => false
-          case _ => false
-        }
-        
-        val base = variants.map(_.id.value).reduce(_ intersect _)
-        (base, moduleAttribute, imported, local) -> variants
-    }
-    val msg = modules.map {
-      case ((base, _, imported, local), variants) =>
-        val locationString = if (imported) " (imported)" else if (!local) " (AdeptHub)" else " (local)" 
-        base + "\n" + variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(variant.toString)).map("\t" + _).mkString("\n") + locationString
-    }.mkString("\n")
+    val renderedSearchResults = AdeptHub.renderSearchResults(searchResults, term, constraints)
 
-    logger.info(msg)
+    logger.info(renderedSearchResults)
     state
   }
 }

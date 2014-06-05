@@ -107,21 +107,22 @@ object AdeptHub {
     }
   }
 
-  def newLockfileRequirements(baseIdString: String, variants: Set[Variant], confs: Set[String], lockfile: Lockfile) = {
+  def variantsAsConfiguredRequirements(potentialVariants: Set[Variant], baseIdString: String, confs: Set[String]) = {
     val configuredIds = confs.map(IvyUtils.withConfiguration(Id(baseIdString), _))
-
-    val newRequirements = variants.filter { variant =>
+    potentialVariants.filter { variant =>
       configuredIds(variant.id)
     }.map { variant =>
-      Requirement(variant.id, Set.empty[Constraint], Set.empty) //empty constraints because we use variant hash to chose 
+      Requirement(variant.id, Set.empty[Constraint], Set.empty)
     }
+  }
 
+  def newLockfileRequirements(newRequirements: Set[Requirement], lockfile: Lockfile) = {
     val newReqIds = newRequirements.map(_.id)
     val requirements = newRequirements ++ (InternalLockfileWrapper.requirements(lockfile).filter { req =>
       //remove old reqs which are overwritten
       !newReqIds(req.id)
     })
-    requirements -> newRequirements
+    requirements
   }
 
   def newLockfileContext(context: Set[ResolutionResult], lockfile: Lockfile) = {
@@ -132,7 +133,41 @@ object AdeptHub {
     })
   }
 
-  def renderErrorReport(requirements: Set[Requirement], context: Set[ResolutionResult], overrides: Set[ResolutionResult], result: ResolveResult) = {
+  def baseId(variants: Set[Variant]) = {
+    variants.map(_.id.value).reduce(_ intersect _)
+  }
+
+  def renderSearchResults(searchResults: Set[SearchResult], term: String, constraints: Set[Constraint] = Set.empty) = {
+    val modules = searchResults.groupBy(_.variant.attribute(AttributeDefaults.ModuleHashAttribute)).map {
+      case (moduleAttribute, searchResults) =>
+        val variants = searchResults.map(_.variant)
+        val local = searchResults.exists {
+          case gitSearchResult: GitSearchResult => gitSearchResult.isLocal
+          case _: ImportSearchResult => true
+          case _ => false
+        }
+        val imported = searchResults.exists {
+          case _: ImportSearchResult => true
+          case _: GitSearchResult => false
+          case _ => false
+        }
+
+        val base = baseId(variants)
+        (base, moduleAttribute, imported, local) -> variants
+    }.toSet
+    val baseVersions = modules.map {
+      case ((base, _, imported, local), variants) =>
+        val locationString = if (imported) " (imported)" else if (!local) " (AdeptHub)" else " (local)"
+        base -> (variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(variant.toString)).map("\t" + _).mkString("\n") + locationString)
+    }
+    baseVersions.groupBy { case (base, _) => base }.map {
+      case (base, grouped) =>
+        val versions = grouped.map(_._2)
+        base + "\n" + versions.mkString("\n")
+    }.mkString("\n")
+  }
+
+  def renderErrorReport(result: ResolveResult, requirements: Set[Requirement], context: Set[ResolutionResult], overrides: Set[ResolutionResult] = Set.empty) = {
     val state = result.state
     val msg = (
       if (state.isUnderconstrained) {

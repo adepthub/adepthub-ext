@@ -91,7 +91,7 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
               Failure(UserInputException(msg))
             case Right(searchResults) => Success(searchResults)
           }
-          
+
           val result: Try[Try[String]] = for {
             //handle user errors:
             _ <- maybeIvyAccepted
@@ -106,7 +106,7 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
                 case _ => false
               }
             }
-            (baseIdString, variants) <- AdeptHub.getUniqueModule(term, importedSearchResults).fold( errorMsg => Failure(UserInputException(errorMsg)), res => Success(res))
+            (baseIdString, variants) <- AdeptHub.getUniqueModule(term, importedSearchResults).fold(errorMsg => Failure(UserInputException(errorMsg)), res => Success(res))
             thisIvyConfig <- AdeptSbtUtils.getTargetConf(ivyConfigurations, targetConf)
           } yield {
             val lockfileFile = lockfileGetter(targetConf)
@@ -114,7 +114,8 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
 
             val results = allIvyTargetConfs.map { targetIvyConf =>
               val lockfile = Lockfile.read(lockfileFile)
-              val (requirements, newRequirements) = AdeptHub.newLockfileRequirements(baseIdString, variants, confs, lockfile)
+              val newRequirements = AdeptHub.variantsAsConfiguredRequirements(variants, baseIdString, confs)
+              val requirements = AdeptHub.newLockfileRequirements(newRequirements, lockfile)
               val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(importedSearchResults), lockfile)
               val overrides = inputContext
 
@@ -134,7 +135,7 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
                     val msg = s"Installed $org#$name!$revision"
                     Right((lockfile, targetConf, lockfileFile, msg))
                   case Left(error) =>
-                    Left(targetConf -> AdeptHub.renderErrorReport(requirements, inputContext, overrides, error))
+                    Left(targetConf -> AdeptHub.renderErrorReport(error, requirements, inputContext, overrides))
                 }
               result
             }

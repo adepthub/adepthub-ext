@@ -74,6 +74,7 @@ private[adept] object Search {
     }(executionContext)
   }
 
+  //TODO: remove duplicate code in Adept.localSearch
   def searchImportRepository(adeptHub: AdeptHub)(term: String, name: RepositoryName, constraints: Set[Constraint] = Set.empty): Set[ImportSearchResult] = {
     val repository = new Repository(adeptHub.importsDir, name)
     if (repository.exists) {
@@ -85,7 +86,7 @@ private[adept] object Search {
             ranking.variants.map { hash =>
               VariantMetadata.read(id, hash, repository, checkHash = true).map(_.toVariant(id))
                 .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash, repository.dir.getAbsolutePath)))
-            }.find { variant =>
+            }.filter { variant =>
               constraints.isEmpty ||
                 AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
             }.map(_ -> rankId)
