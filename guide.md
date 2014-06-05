@@ -12,6 +12,8 @@ This guide explains how to use the adepthub-ext programatically.
 
 ### Resolving with AdeptHub extensions
 
+Before starting this guide, have a look at the `concepts.md` file in this directory to get a basic understanding of the concepts in adept
+
 #### Step 1: Instantiate AdeptHub
 ```scala
 import adept.{Defaults, AdeptHub}
