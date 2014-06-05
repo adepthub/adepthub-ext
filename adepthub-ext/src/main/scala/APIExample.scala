@@ -116,6 +116,20 @@ private object APIExample extends App { //TODO: move to other project
         adepthub.writeLockfile(lockfile, lockfileFile) //update lockfile
         println("Wrote: " + lockfileFile)
     }
+    
+    //Download artifacts
+    val downloadTimeoutMinutes = 10
+    val downloadResults = lockfile.download(adepthub.baseDir, downloadTimeoutMinutes, 
+        java.util.concurrent.TimeUnit.MINUTES, 5, 
+        //see issue 
+        new adept.logging.TextLogger(adept.logging.TextLogger.INFO), 
+        new adept.progress.TextProgressMonitor)
+    import collection.JavaConverters._
+    val classpath: String = downloadResults.asScala.map { result =>
+      if (result.isSuccess)
+        result.getCachedFile
+      else throw new Exception("Could not download artifact from: " + result.artifact.locations, result.exception)
+    }.mkString(":")
   }
 
   cacheManager.shutdown() //must shutdown to join cachemanager threads
