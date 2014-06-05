@@ -29,15 +29,16 @@ In Adept, metadata is versioned in Git. The context tells Adept what actual Git 
 Currently the context (i.e. the metadata) must be available locally to Adept, but adepthub-ext has helpers to help with this.
 
 In Adept we have: 
-**requirements X context = result**
+`requirements` **X** `context` = `result`
 
 The equivalent of a context in Maven/Ivy is the state a repository/the cache is in at the time you resolve. The state however is something which is mutable (i.e. it can change) dependening on the resolvers you use, whether Maven/Ivy uses the cache or not, and the metadata which is actually there. For a SNAPSHOT for example the state of the repository changes on each release. Therefore state is something related to time, which fits well according to the dictionary:
-    State: *the particular condition that someone or something is in at a specific time*
+
+*State*: *the particular condition that someone or something is in at a specific time*
     
 Comparatively, Ivy/Maven where we will have: 
-**dependencies X state(t) = result(t)**, where t is time, indicating that the state, and thus, the result is dependent on time. 
+`dependencies` **X** `state(t)` = `result(t)`, where t is time, indicating that the state, and thus, the result is dependent on time. 
 
-The metadata declared in the context can be fetched in different ways, but the easiest way is to fetch it from AdeptHub by searching for it. Note that searching uses local repositories whenever they are available. This makes it possible to use AdeptHub even without being connected to the internet and makes it more efficient because it knows when it needs to fetch it or not.
+The metadata declared in the context can be fetched in different ways, but the easiest way is to fetch it from AdeptHub by searching for it. Note that searching uses local repositories whenever they are available. This makes it possible to resolve reliabily (no surprises like when Maven/Ivy invalidates their caches) without being online and makes it more efficient because it knows when it needs to fetch it or not.
 
 #### Resolution algorithm
 Resolution in Adept is the process of getting all the variants that matches a set of requirements.
