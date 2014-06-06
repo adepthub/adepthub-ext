@@ -34,7 +34,7 @@ import adept.ivy.IvyImportResultInserter
 import adept.ivy.IvyRequirements
 import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
 import org.eclipse.jgit.lib.{ ProgressMonitor, TextProgressMonitor }
-import adept.lockfile.{ InternalLockfileWrapper, Lockfile }
+import adept.lockfile.{ LockfileConverters, Lockfile }
 import adept.ext.AttributeDefaults
 import adept.repository.GitLoader
 import net.sf.ehcache.CacheManager
@@ -74,6 +74,7 @@ import adept.ext.VersionRank
 import adept.resolution.models.Variant
 import scala.util.Success
 import scala.util.Failure
+import adept.lockfile.LockfileContext
 
 object AdeptHub {
 
@@ -132,7 +133,7 @@ object AdeptHub {
 
   def newLockfileRequirements(newRequirements: Set[Requirement], lockfile: Lockfile) = {
     val newReqIds = newRequirements.map(_.id)
-    val requirements = newRequirements ++ (InternalLockfileWrapper.requirements(lockfile).filter { req =>
+    val requirements = newRequirements ++ (LockfileConverters.requirements(lockfile).filter { req =>
       //remove old reqs which are overwritten
       !newReqIds(req.id)
     })
@@ -141,7 +142,7 @@ object AdeptHub {
 
   def newLockfileContext(context: Set[ResolutionResult], lockfile: Lockfile) = {
     val newContextIds = context.map(_.id)
-    context ++ (InternalLockfileWrapper.context(lockfile).filter { c =>
+    context ++ (LockfileConverters.context(lockfile).filter { c =>
       //remove old context values which are overwritten
       !newContextIds(c.id)
     })
@@ -204,7 +205,7 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
 
   def downloadLockfileLocations(newRequirements: Set[Requirement], lockfile: Lockfile) = {
     val newReqIds = newRequirements.map(_.id)
-    val allLocations = InternalLockfileWrapper.locations(lockfile)
+    val allLocations = LockfileConverters.locations(lockfile)
     val required = allLocations.flatMap {
       case (name, id, maybeCommit, locations) =>
         if (!newReqIds(id)) {
@@ -368,7 +369,7 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
                   ArtifactMetadata.read(artifactHash, repository).getOrElse(throw new Exception("Could not read artifact metadata for: " + artifactHash + ": " + contextValue))
               }
               val fallbackFilename = contextValue.variant.value
-              InternalLockfileWrapper.newArtifact(artifact.hash, metadata.size.toInt, metadata.locations, artifact.attributes, artifact.filename.getOrElse(fallbackFilename))
+              LockfileConverters.newArtifact(artifact.hash, metadata.size.toInt, metadata.locations, artifact.attributes, artifact.filename.getOrElse(fallbackFilename))
             }
         }.toSet
         val lockfileContext = inputContext.flatMap { c =>
@@ -377,13 +378,13 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
             val resolvedHash = VariantMetadata.fromVariant(variant).hash
             if (c.variant != resolvedHash) throw new Exception("Input context has a different hash than resolved results. Resolved: " + resolvedHash.value + ", context: " + c.variant.value + ". Context: " + c)
             val locations = transitiveLocations.filter(_.name == c.repository).flatMap(_.uris)
-            Some(InternalLockfileWrapper.newContext(info = variant.toString, variant.id, c.repository, locations, c.commit, c.variant))
+            Some(LockfileConverters.newContext(variant.toString, variant.id, c.repository, locations, c.commit, c.variant))
           }
         }
         val lockfileRequirements = mergedRequirements.map { r =>
-          InternalLockfileWrapper.newRequirement(r.id, r.constraints, r.exclusions)
+          LockfileConverters.newRequirement(r.id, r.constraints, r.exclusions)
         }
-        resolveResult -> InternalLockfileWrapper.create(lockfileRequirements, lockfileContext, lockfileArtifacts)
+        resolveResult -> LockfileConverters.create(lockfileRequirements, lockfileContext, lockfileArtifacts)
     }
     result
   }

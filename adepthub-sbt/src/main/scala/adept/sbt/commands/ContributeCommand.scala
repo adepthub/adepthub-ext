@@ -12,7 +12,6 @@ import adept.ext.models.Module
 import adept.ext.VersionRank
 import adept.ivy.IvyUtils
 import adept.lockfile.Lockfile
-import adept.lockfile.InternalLockfileWrapper
 import adept.sbt.AdeptDefaults
 import adept.sbt.SbtUtils
 import adept.ivy.IvyConstants
@@ -38,7 +37,7 @@ class ContributeCommand(adepthub: AdeptHub) extends AdeptCommand {
     val results = adepthub.contribute()
     lockfiles.foreach { case (conf, lockfileFile) =>
       val lockfile = Lockfile.read(lockfileFile)
-      adepthub.writeLockfile(InternalLockfileWrapper.updateWithContributions(lockfile, results), lockfileFile)
+      adepthub.writeLockfile(adept.Contribute.updateWithContributions(lockfile, results), lockfileFile)
     }
     scala.reflect.io.Directory(adepthub.importsDir).deleteRecursively
     

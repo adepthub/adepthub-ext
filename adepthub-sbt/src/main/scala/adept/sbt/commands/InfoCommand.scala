@@ -12,7 +12,7 @@ import adept.ext.models.Module
 import adept.ext.VersionRank
 import adept.ivy.IvyUtils
 import adept.lockfile.Lockfile
-import adept.lockfile.InternalLockfileWrapper
+import adept.lockfile.LockfileConverters
 import adept.sbt.AdeptDefaults
 import adept.sbt.SbtUtils
 import adept.ivy.IvyConstants
@@ -47,7 +47,7 @@ class InfoCommand(args: Seq[String], lockfileGetter: String => File, adepthub: A
           val lockfileFile = lockfileGetter(conf)
           val lockfile = Lockfile.read(lockfileFile)
           logger.info(conf + ":")
-          InternalLockfileWrapper.info(lockfile).toSeq.sorted.foreach{ info =>
+          LockfileConverters.info(lockfile).toSeq.sorted.foreach{ info =>
             logger.info("\t"+info)
           }
         }

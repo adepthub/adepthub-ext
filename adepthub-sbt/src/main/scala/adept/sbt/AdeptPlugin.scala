@@ -2,8 +2,7 @@ package adept.sbt
 
 import sbt._
 import sbt.Keys._
-import adept.lockfile.Lockfile
-import adept.lockfile.InternalLockfileWrapper
+import adept.lockfile.{ Lockfile, LockfileConverters }
 import adept.sbt.commands._
 import adept.AdeptHub
 import net.sf.ehcache.CacheManager
@@ -69,11 +68,11 @@ object AdeptPlugin extends Plugin {
           if (lockfileFile.exists())
             Lockfile.read(lockfileFile)
           else
-            InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)
+            LockfileConverters.create(Set.empty, Set.empty, Set.empty)
         }
         lockfile
       }.getOrElse {
-        InternalLockfileWrapper.create(Set.empty, Set.empty, Set.empty)
+        LockfileConverters.create(Set.empty, Set.empty, Set.empty)
       }
     },
     adeptClasspath in conf := {

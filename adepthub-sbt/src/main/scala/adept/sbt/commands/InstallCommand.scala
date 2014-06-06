@@ -12,7 +12,6 @@ import adept.ext.models.Module
 import adept.ext.VersionRank
 import adept.ivy.IvyUtils
 import adept.lockfile.Lockfile
-import adept.lockfile.InternalLockfileWrapper
 import adept.sbt.AdeptDefaults
 import adept.ext.AttributeDefaults
 import adept.sbt.SbtUtils

@@ -12,7 +12,7 @@ import adept.ext.models.Module
 import adept.ext.VersionRank
 import adept.ivy.IvyUtils
 import adept.lockfile.Lockfile
-import adept.lockfile.InternalLockfileWrapper
+import adept.lockfile.LockfileConverters
 import adept.sbt.AdeptDefaults
 import adept.sbt.SbtUtils
 import adept.ivy.IvyConstants
@@ -56,8 +56,8 @@ class RmCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion:
             val results = confs.map { conf =>
               val lockfileFile = lockfileGetter(conf)
               val lockfile = Lockfile.read(lockfileFile)
-              val requirements = InternalLockfileWrapper.requirements(lockfile)
-              val inputContext = InternalLockfileWrapper.context(lockfile)
+              val requirements = LockfileConverters.requirements(lockfile)
+              val inputContext = LockfileConverters.context(lockfile)
               val overrides = inputContext
 
               val (removeRequirements, keepRequirements) = requirements.partition { requirement =>

@@ -60,22 +60,22 @@ object Contribute extends Logging {
     }
   }
   
+  
   def updateWithContributions(lockfile: Lockfile, contributions: Set[ContributionResult]) = {
     import collection.JavaConverters._
     val contributionByRepos = contributions.groupBy(_.repository)
-    val updatedContext = lockfile.getContext.asScala.map { value =>
+    val newContext = lockfile.getContext().asScala.map { value =>
       contributionByRepos.get(adept.repository.models.RepositoryName(value.repository.value)) match {
         case Some(matchingContribs) =>
           if (matchingContribs.size != 1) throw new Exception("Got more than one contribution per repository. This is unexpected so we fail. Contributions:\n" + contributions.mkString("\n"))
           val matchingContrib = matchingContribs.head
-           new LockfileContext(value.info, value.id, value.repository, matchingContrib.locations.map{ new LockfileRepositoryLocation(_) }.toSet.asJava, new LockfileCommit(matchingContrib.commit.value), value.hash)
+          new LockfileContext(value.info, value.id, value.repository, matchingContrib.locations.map { new adept.lockfile.RepositoryLocation(_) }.toSet.asJava, new adept.lockfile.Commit(matchingContrib.commit.value), value.hash)
         case None =>
           value
       }
     }
-    new Lockfile(lockfile.getRequirements, updatedContext.asJava, lockfile.getArtifacts)
+    new Lockfile(lockfile.getRequirements(), newContext.asJava, lockfile.getArtifacts())
   }
-
 
   def sendFile(url: String, baseDir: File, passphrase: Option[String], progress: ProgressMonitor)( file: File) = {
     ///TODO: future me, I present my sincere excuses for this code: http client sucks!
@@ -129,6 +129,7 @@ object Contribute extends Logging {
       httpClient.close()
     }
   }
+  
 
   def contribute(url: String, baseDir: File, passphrase: Option[String], progress: ProgressMonitor, importsDir: File): Set[ContributionResult] = {
     sendFile(url, baseDir, passphrase, progress)(compress(importsDir)).toSet
