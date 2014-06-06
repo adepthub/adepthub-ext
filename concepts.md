@@ -45,7 +45,7 @@ In Adept, the context metadata can be fetched in different ways, but the easiest
 *a form or version of something that differs in some respect from other forms of the same thing*
 
 A variant is the "atom" of Adept, in the sense that it is not the smallest unit, but sort of...
- It is the equivalent of 'version' or 'revision' in other dependency managers, but since Adept is multi-dimensional (meaning it can resolve on multiple attributes) it is possible that there are many variants with the same "version" attribute (e.g. 2 variants with "version": 1.0.0, but with different requirements). Therefore, we felt 'version' would be a poor choice and came up with the name 'variant' instead.
+ It is the equivalent of 'version' or 'revision' in other dependency managers, but since Adept is multi-dimensional (meaning it can resolve on multiple attributes) it is possible that there are many variants with the same "version" attribute (e.g. 2 variants with "version": 1.0.0, but with other differing attributes or requirements). Therefore, we felt 'version' would be a poor choice and came up with the name 'variant' instead.
 
 #### Resolution algorithm
 Resolution in Adept is the process of getting all the variants that matches a set of requirements.
