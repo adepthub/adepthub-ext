@@ -11,7 +11,7 @@ resolvers += Resolver.url("adepthub-sbt-plugin-releases",
   new URL("http://adepthub.github.io/adepthub-ext/releases"))(
     Resolver.ivyStylePatterns)
 
-addSbtPlugin("com.adepthub" % "adepthub-sbt" % "0.9.2.4")
+addSbtPlugin("com.adepthub" % "adepthub-sbt" % "0.9.2.6")
 ```
  - Now you should be ready to rumble:
     - In sbt try: `ah install` to install a new library. It actually searches for unique modules, so if you do `ah install akka-actor/` and there is only one module matching it (which is the case it will work). If you want a particular version use `-v`: `ah install akka-actor/ -v 2.2.1`
