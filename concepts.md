@@ -72,7 +72,7 @@ Combining precalculated lockfiles, artifact hashing and parallel downloads, Adep
 
 #### Versions
 Contrary to many modern dependency/package managers, Adept does not put any special meaning (I want to say semantical, but it is an overloaded word in this context) to version strings: if you constrain a requirement to a **specific** attribute you will never get a variant with a different attributes, and if there is a conflict it will fail. By extension this also means that Adept, on its own merits, does not know anything about "semantic versioning", e.g. "2.1.1" is higher/better than AND compatible with "2.1.0".
-However, similar and more powerful capabilities can be obtained by using Adepts strict constraints and the binary version and version attributes (which are just are 2 standardized named attributes).
+However, similar and more powerful capabilities can be obtained by using the traits of Adepts resolution engine and the binary version and version attributes (which are just are 2 standardized named attributes).
 In this context, binary version is used throughout AdeptHub exensions (not in Adept) to indicate which variants are binary compatible. 
 Here are 3 examples of the most commonly used version schemes and how they are implemented:
 - To emulate "standard" Ivy/Maven versioning, all variants are in the same ranking file, sorted by their version string. The sorting happens when variants are published, contrary to Ivy/Maven where this happens as part of the resolution process.
