@@ -40,6 +40,13 @@ Comparatively, Ivy/Maven where we will have:
 
 In Adept, the context metadata can be fetched in different ways, but the easiest way is to fetch it from AdeptHub by searching for it. Note that searching uses local repositories whenever they are available. This makes it possible to resolve reliabily (no surprises like when Maven/Ivy invalidates their caches) without being online and makes it more efficient because it knows when it needs to fetch it or not.
 
+#### Variant
+*A Variant*: 
+*a form or version of something that differs in some respect from other forms of the same thing*
+
+A variant is the "atom" of Adept, in the sense that it is not the smallest unit, but sort of...
+ It is the equivalent of 'version' or 'revision' in other dependency managers, but since Adept is multi-dimensional (meaning it can resolve on multiple attributes) it is possible that there are many variants with the same "version" attribute (e.g. 2 variants with "version": 1.0.0, but with different requirements). Therefore, we felt 'version' would be a poor choice and came up with the name 'variant' instead.
+
 #### Resolution algorithm
 Resolution in Adept is the process of getting all the variants that matches a set of requirements.
 Adept uses a different model for resolution than most (all?) other dependency managers because there is no conflict management during resolution. 
