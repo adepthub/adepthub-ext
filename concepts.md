@@ -70,7 +70,7 @@ In this context, binary version is used throughout AdeptHub exensions (not in Ad
 Here are 3 examples of the most commonly used version schemes and how they are implemented:
 - To emulate "standard" Ivy/Maven versioning, all variants are in the same ranking file, sorted by their version string. The sorting happens when variants are published, contrary to Ivy/Maven where this happens as part of the resolution process.
 - To emulate semantic versioning, all compatible variants have the same binary-version, ranked according to their version in the same ranking file. When there are more than one ranking file, users will be under-constrained (there is not only one variant) thus forced to specify the binary version in order to resolve.
-- To emulate backwards compatibility, all backwards compatible variants are in the same ranking, each successive variant has it own binary version and all the ones from the former (Java 1.6 has binary version values: 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6). When the context is computed, the variant with highest variant will be chosen.
+- To emulate backwards compatibility, all backwards compatible variants are in the same ranking, each successive variant has it own binary version and all the ones from the former (Java 1.6 has binary version values: 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6). When the context is computed, the variant with highest binary version will be chosen (because of its higher rank).
 
 
 #### Ranking
