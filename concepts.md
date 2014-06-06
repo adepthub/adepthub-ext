@@ -17,7 +17,7 @@ The requirements tells Adept which libraries your user wants/requires. Requireme
 For example "I require a scala library that is binary compatible with 2.10", which means I am constraining Adept to any scala library with a 2.10 binary version. I do not "depend" on it, because:
  1. It might/is probably already there (as part of the build tool).
  2. There is no unique "thing" which is "scala library binary version 2.10", there are multiple variants/versions of the scala library with a binary version that all matches my requirement (2.10.0, 2.10.1, ...). 
- 3. It might not be true that you actually are "depending on it" since the resolution might fail and, for example, tell you that you need at scala libarary 2.11 because one or more of your libraries requires 2.11. 
+ 3. It might not be true that you actually are "depending on it" since the resolution might override your dependency. In Adept, however, the resolution is strict: failed requirements makes resolution fail and, for example, tell you that you need at scala libarary 2.11 because one or more of your libraries requires 2.11. 
 
 For Ivy and Maven "dependencies" makes more sense, because they would typically just accept that the latest version of a transitive dependency needs something like "scala library 2.11" and try to put scala 2.11 on your classpath or ignore it (in case it is overridden). In the case of scala this is probably not what you want, not only because these libraries will be binary incompatible, but because if you use a 2.10 lib, you most likely use the scala compiler 2.10 which is not compatible. The bottom line is that these errors are not something you want your dependency manager to gloss over - luckily you for Adept is here to save the day :)
 
@@ -38,7 +38,7 @@ The equivalent of a context in Maven/Ivy is the state a repository/the cache is 
 Comparatively, Ivy/Maven where we will have: 
 `dependencies` **X** `state(t)` = `result(t)`, where t is time, indicating that the state, and thus, the result is dependent on time. 
 
-The metadata declared in the context can be fetched in different ways, but the easiest way is to fetch it from AdeptHub by searching for it. Note that searching uses local repositories whenever they are available. This makes it possible to resolve reliabily (no surprises like when Maven/Ivy invalidates their caches) without being online and makes it more efficient because it knows when it needs to fetch it or not.
+In Adept, the context metadata can be fetched in different ways, but the easiest way is to fetch it from AdeptHub by searching for it. Note that searching uses local repositories whenever they are available. This makes it possible to resolve reliabily (no surprises like when Maven/Ivy invalidates their caches) without being online and makes it more efficient because it knows when it needs to fetch it or not.
 
 #### Resolution algorithm
 Resolution in Adept is the process of getting all the variants that matches a set of requirements.
@@ -70,7 +70,7 @@ In this context, binary version is used throughout AdeptHub exensions (not in Ad
 Here are 3 examples of the most commonly used version schemes and how they are implemented:
 - To emulate "standard" Ivy/Maven versioning, all variants are in the same ranking file, sorted by their version string. The sorting happens when variants are published, contrary to Ivy/Maven where this happens as part of the resolution process.
 - To emulate semantic versioning, all compatible variants have the same binary-version, ranked according to their version in the same ranking file. When there are more than one ranking file, users will be under-constrained (there is not only one variant) thus forced to specify the binary version in order to resolve.
-- To emulate backwards compatibility, all backwards compatible variants are in the same ranking, each successive variant has it own binary version and all the ones from the former (Java 1.6 has binary version values: 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7). When the context is computed, the variant with highest variant will be chosen.
+- To emulate backwards compatibility, all backwards compatible variants are in the same ranking, each successive variant has it own binary version and all the ones from the former (Java 1.6 has binary version values: 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6). When the context is computed, the variant with highest variant will be chosen.
 
 
 #### Ranking
