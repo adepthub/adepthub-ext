@@ -206,7 +206,7 @@ libraryDependencies += "com.adepthub" %% "adepthub-ext" % "0.9.2.6"
 
 ### Feedback
 
-Feeback is most welcome! We are still early in our process and the code base is flexible so make your voice
+Feedback is most welcome! We are still early in our process and the code base is flexible so make your voice
 heard now!
 
 We prefer issues, but mail ('my first name' 'at' 'adepthub' 'dot' 'com') works if there is something you do
