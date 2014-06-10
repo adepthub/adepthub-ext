@@ -19,13 +19,13 @@ import adept.repository.models.Commit
 import adept.repository.models.VariantHash
 import adept.resolution.resolver.models.ResolveResult
 import adept.repository.models.RepositoryLocations
-import adept.repository.models.ResolutionResult
+import adept.repository.models.ContextValue
 import scala.concurrent.ExecutionContext
 import adept.repository.Repository
 import adept.repository.GitRepository
 import adept.repository.metadata.VariantMetadata
 import adept.repository.metadata.RankingMetadata
-import adept.repository.metadata.ResolutionResultsMetadata
+import adept.repository.metadata.ContextMetadata
 import adept.repository.metadata.RepositoryLocationsMetadata
 import adept.ivy.IvyUtils
 import adept.ivy.IvyConstants
@@ -113,10 +113,10 @@ object AdeptHub {
     searchResults.map {
       case searchResult: ImportSearchResult =>
         val hash = VariantMetadata.fromVariant(searchResult.variant).hash
-        ResolutionResult(searchResult.variant.id, searchResult.repository, None, hash)
+        ContextValue(searchResult.variant.id, searchResult.repository, None, hash)
       case searchResult: GitSearchResult =>
         val hash = VariantMetadata.fromVariant(searchResult.variant).hash
-        ResolutionResult(searchResult.variant.id, searchResult.repository, Some(searchResult.commit), hash)
+        ContextValue(searchResult.variant.id, searchResult.repository, Some(searchResult.commit), hash)
       case searchResult: SearchResult =>
         throw new Exception("Found a search result but expected either an import or a git search result: " + searchResult)
     }
@@ -140,7 +140,7 @@ object AdeptHub {
     requirements
   }
 
-  def newLockfileContext(context: Set[ResolutionResult], lockfile: Lockfile) = {
+  def newLockfileContext(context: Set[ContextValue], lockfile: Lockfile) = {
     val newContextIds = context.map(_.id)
     context ++ (LockfileConverters.context(lockfile).filter { c =>
       //remove old context values which are overwritten
@@ -182,7 +182,7 @@ object AdeptHub {
     }.mkString("\n")
   }
 
-  def renderErrorReport(result: ResolveResult, requirements: Set[Requirement], context: Set[ResolutionResult], overrides: Set[ResolutionResult] = Set.empty) = {
+  def renderErrorReport(result: ResolveResult, requirements: Set[Requirement], context: Set[ContextValue], overrides: Set[ContextValue] = Set.empty) = {
     val state = result.state
     val msg = (
       if (state.isUnderconstrained) {
@@ -300,7 +300,7 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
     Search.mergeSearchResults(imports = importResults, offline = offlineResults, online = Await.result(onlineResults, onlineTimeout), alwaysIncludeImports)
   }
 
-  def resolve(requirements: Set[Requirement], inputContext: Set[ResolutionResult], overrides: Set[ResolutionResult] = Set.empty, providedVariants: Set[Variant] = Set.empty): Either[ResolveResult, (ResolveResult, Lockfile)] = {
+  def resolve(requirements: Set[Requirement], inputContext: Set[ContextValue], overrides: Set[ContextValue] = Set.empty, providedVariants: Set[Variant] = Set.empty): Either[ResolveResult, (ResolveResult, Lockfile)] = {
     val overriddenInputContext = GitLoader.applyOverrides(inputContext, overrides)
     val context = GitLoader.computeTransitiveContext(baseDir, overriddenInputContext, Some(importsDir))
     val overriddenContext = GitLoader.applyOverrides(context, overrides) //apply overrides again in case something transitive needs to be overridden

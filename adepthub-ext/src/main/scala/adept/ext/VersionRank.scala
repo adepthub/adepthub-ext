@@ -7,7 +7,7 @@ import java.io.File
 import adept.repository.metadata.VariantMetadata
 import adept.logging.Logging
 import java.io.FileWriter
-import adept.repository.metadata.ResolutionResultsMetadata
+import adept.repository.metadata.ContextMetadata
 import scala.util.matching.Regex
 import adept.repository.metadata.RankingMetadata
 import adept.repository.RankLogic
@@ -93,8 +93,8 @@ case class RepositoryNotFoundException(targetName: RepositoryName, targetId: Id,
 object VersionRank extends Logging {
   import adept.ext.AttributeDefaults._
 
-  def createResolutionResults(baseDir: File, versionInfo: Set[(RepositoryName, Id, Version)]): (Set[RecoverableError], Set[ResolutionResult]) = {
-    var results = Set.empty[ResolutionResult]
+  def createResolutionResults(baseDir: File, versionInfo: Set[(RepositoryName, Id, Version)]): (Set[RecoverableError], Set[ContextValue]) = {
+    var context = Set.empty[ContextValue]
     var errors = Set.empty[RecoverableError]
     versionInfo.foreach {
       case (targetName, targetId, targetVersion) =>
@@ -103,9 +103,9 @@ object VersionRank extends Logging {
           val commit = repository.getHead
           VersionScanner.findVersion(targetId, targetVersion, repository, commit) match {
             case Some(targetHash) =>
-              val result = ResolutionResult(targetId, targetName, Some(commit), targetHash)
-              val transitive = ResolutionResultsMetadata.read(targetId, targetHash, repository, commit).toSeq.flatMap(_.values)
-              results ++= transitive.toSet + result
+              val contextValue = ContextValue(targetId, targetName, Some(commit), targetHash)
+              val transitive = ContextMetadata.read(targetId, targetHash, repository, commit).toSeq.flatMap(_.values)
+              context ++ transitive.toSet + contextValue
             case None =>
               errors += VersionNotFoundException(targetName, targetId, targetVersion)
           }
@@ -113,7 +113,7 @@ object VersionRank extends Logging {
           errors += RepositoryNotFoundException(targetName, targetId, targetVersion)
         }
     }
-    errors -> results
+    errors -> context
   }
 
   def getVersion(variant: Variant) = {
@@ -164,7 +164,7 @@ object VersionRank extends Logging {
 
     //- Find binary versions or add new variant with binary versions
     var newVariants = Set.empty[File]
-    var newResolutionResults = Set.empty[File]
+    var newContextFiles = Set.empty[File]
     var allBinaryVersions = Map.empty[String, Seq[Variant]]
     var removeDefaults = Set.empty[VariantHash]
 
@@ -205,7 +205,7 @@ object VersionRank extends Logging {
             val newVariant = variant.copy(attributes = variant.attributes + Attribute(BinaryVersionAttribute, Set(binaryVersion)))
             val newVariantMetadata = VariantMetadata.fromVariant(newVariant)
             newVariants += newVariantMetadata.write(id, repository)
-            newResolutionResults ++= ResolutionResultsMetadata.read(id, VariantMetadata.fromVariant(variant).hash, repository, commit).map {
+            newContextFiles ++= ContextMetadata.read(id, VariantMetadata.fromVariant(variant).hash, repository, commit).map {
               _.write(id, newVariantMetadata.hash, repository)
             }
             val parsedVariants = allBinaryVersions.getOrElse(binaryVersion, Seq.empty)
@@ -262,14 +262,14 @@ object VersionRank extends Logging {
           if (newVariants.nonEmpty) Some(RankingMetadata(sortedVariants).write(id, rankId, repository))
           else None
       } ++ defaultAddFiles
-      (newVariants ++ newResolutionResults ++ rankingFiles.toSet, oldRankingFiles.toSet ++ defaultRmFiles)
+      (newVariants ++ newContextFiles ++ rankingFiles.toSet, oldRankingFiles.toSet ++ defaultRmFiles)
     }
   }
 
   private def replaceVariant(currentVariant: Variant, newVariant: Variant, otherRepository: GitRepository, otherCommit: Commit, repository: GitRepository, commit: Commit) = {
     val newVariantMetadata = VariantMetadata.fromVariant(newVariant)
     val oldHash = VariantMetadata.fromVariant(currentVariant).hash
-    val oldResolutionMetadata = ResolutionResultsMetadata.read(currentVariant.id, oldHash, otherRepository, otherCommit)
+    val oldContextMetadata = ContextMetadata.read(currentVariant.id, oldHash, otherRepository, otherCommit)
     val id = currentVariant.id
     val changedFiles = RankingMetadata.listRankIds(id, repository, commit).flatMap { rankId =>
       RankingMetadata.read(id, rankId, repository, commit).flatMap { rankings =>
@@ -282,22 +282,22 @@ object VersionRank extends Logging {
 
     changedFiles +
       newVariantMetadata.write(newVariant.id, repository) ++
-      oldResolutionMetadata.map(_.write(newVariant.id, newVariantMetadata.hash, repository))
+      oldContextMetadata.map(_.write(newVariant.id, newVariantMetadata.hash, repository))
   }
 
   /** For variants that have binary-versions set in (id and repository), find all variants that requires it (in inRepositories) and lock the requirements to this binary-version */
   def useBinaryVersionOf(id: Id, repository: GitRepository, commit: Commit, inRepositories: Set[GitRepository]): Set[(GitRepository, File)] = {
-    def getBinaryVersionRequirements(variant: Variant, resolutionResults: ResolutionResultsMetadata) = {
+    def getBinaryVersionRequirements(variant: Variant, context: ContextMetadata) = {
       val (targetRequirements, untouchedRequirements) = variant.requirements
         .partition { r =>
           r.id == id &&
             !r.constraints.exists(_.name == AttributeDefaults.BinaryVersionAttribute) //skip the constraints that already have binary versions
         }
 
-      val currentResults = resolutionResults.values.filter(r => r.id == id && r.repository == repository.name)
-      if (currentResults.size > 1) throw new Exception("Aborting binary version update because we found more than 1 target repositories for: " + id + " in " + resolutionResults + ": " + currentResults)
+      val currentContextValues = context.values.filter(r => r.id == id && r.repository == repository.name)
+      if (currentContextValues.size > 1) throw new Exception("Aborting binary version update because we found more than 1 target repositories for: " + id + " in " + context + ": " + currentContextValues)
 
-      val maybeBinaryVersion = currentResults.headOption.flatMap { matchingRepositoryInfo =>
+      val maybeBinaryVersion = currentContextValues.headOption.flatMap { matchingRepositoryInfo =>
         val foundVariant = {
           val maybeMetadata = VariantMetadata.read(matchingRepositoryInfo.id, matchingRepositoryInfo.variant,
             repository, matchingRepositoryInfo.commit.getOrElse(throw new Exception("Exepected matching repo to have a commit: "+ matchingRepositoryInfo)))
@@ -325,8 +325,8 @@ object VersionRank extends Logging {
             val metadata = VariantMetadata.read(otherId, otherHash, otherRepo, otherCommit).getOrElse(throw new Exception("Could not update binary version for: " + id + " in " + otherId + " because we could not find a variant for hash: " + otherHash + " in " + otherRepo + " and commit " + otherCommit))
             metadata.toVariant(otherId)
           }
-          val resolutionResults = ResolutionResultsMetadata.read(otherId, otherHash, otherRepo, otherCommit).getOrElse {
-            ResolutionResultsMetadata(Seq(ResolutionResult(otherId, otherRepo.name, Some(otherCommit), otherHash)))
+          val resolutionResults = ContextMetadata.read(otherId, otherHash, otherRepo, otherCommit).getOrElse {
+            ContextMetadata(Seq(ContextValue(otherId, otherRepo.name, Some(otherCommit), otherHash)))
           }
           val (fixedRequirements, untouchedRequirements) = getBinaryVersionRequirements(otherVariant, resolutionResults)
 

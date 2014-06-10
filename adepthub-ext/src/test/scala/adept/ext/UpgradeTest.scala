@@ -9,13 +9,11 @@ import adept.resolution.models.Variant
 import adept.repository.metadata.VariantMetadata
 import adept.lockfile.Lockfile
 import adept.resolution.models.Requirement
-import adept.repository.models.ResolutionResult
 import adept.repository.GitLoader
 import adept.resolution.models.Constraint
 import adept.resolution.models.Attribute
 import adept.repository.metadata.RankingMetadata
 import adept.repository.RankLogic
-import adept.lockfile.InternalLockfileWrapper
 
 class UpgradeTest extends FunSuite with Matchers {
   import adept.test.FileUtils._

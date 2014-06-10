@@ -1,8 +1,8 @@
 package adept.test
 
 import adept.resolution.models.Requirement
+import adept.repository.models.ContextValue
 import org.apache.ivy.core.module.descriptor.ModuleDescriptor
-import adept.repository.models.ResolutionResult
 import adept.hash.Hasher
 import adept.ivy.IvyImportResult
 import adept.resolution.resolver.models.ResolveResult
@@ -43,12 +43,12 @@ object BenchmarkUtils {
     BenchmarkId(requirements.toString)
   }
 
-  implicit def convertResults(results: Set[ResolutionResult]): BenchmarkId = {
-    BenchmarkId(results.toString)
+  implicit def convertContext(context: Set[ContextValue]): BenchmarkId = {
+    BenchmarkId(context.toString)
     
   }
   implicit def convertGitLoader(loader: GitLoader): BenchmarkId = {
-    convertResults(loader.results)
+    convertContext(loader.context)
   }
 
   implicit def convertMemGitLoader(loader: MemoryLoader): BenchmarkId = {

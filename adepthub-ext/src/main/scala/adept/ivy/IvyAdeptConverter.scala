@@ -27,7 +27,6 @@ import adept.resolution.models.ArtifactRef
 import adept.resolution.models.Constraint
 import adept.artifact.models.ArtifactAttribute
 import adept.resolution.models.Variant
-import adept.repository.models.ResolutionResult
 import java.io.StringBufferInputStream
 import java.io.StringReader
 import java.io.InputStreamReader

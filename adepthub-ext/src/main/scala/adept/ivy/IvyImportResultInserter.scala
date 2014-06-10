@@ -36,7 +36,7 @@ object IvyImportResultInserter extends Logging {
    *  Insert Ivy Import results (variants, resolution results, ...) into corresponding Adept repositories.
    *  Automatically ranks variants according to useDefaultVersionRanking.
    */
-  def insertAsResolutionResults(importDir: File, baseDirForCache: File, results: Set[IvyImportResult], progress: ProgressMonitor): Set[ResolutionResult] = {
+  def insertAsResolutionResults(importDir: File, baseDirForCache: File, results: Set[IvyImportResult], progress: ProgressMonitor): Set[ContextValue] = {
     progress.beginTask("Applying exclusion(s)", results.size)
     var included = Set.empty[IvyImportResult]
     results.foreach { result =>
@@ -115,8 +115,8 @@ object IvyImportResultInserter extends Logging {
       (ivyResult.repository, ivyResult.variant.id, version)
     }
 
-    def createResolutionResults(versionInfo: Set[(RepositoryName, Id, Version)]): (Set[RecoverableError], Set[ResolutionResult]) = {
-      var foundResults = Set.empty[ResolutionResult]
+    def createResolutionResults(versionInfo: Set[(RepositoryName, Id, Version)]): (Set[RecoverableError], Set[ContextValue]) = {
+      var foundContext = Set.empty[ContextValue]
       var errors = Set.empty[RecoverableError]
       versionInfo.foreach {
         case (targetName, targetId, targetVersion) =>
@@ -128,13 +128,13 @@ object IvyImportResultInserter extends Logging {
                 errors += VersionNotFoundException(targetName, targetId, targetVersion)
               } else {
                 val foundVersionResult = foundVersionedResults.head
-                foundResults += ResolutionResult(targetId, targetName, None, VariantMetadata.fromVariant(foundVersionResult.variant).hash)
+                foundContext += ContextValue(targetId, targetName, None, VariantMetadata.fromVariant(foundVersionResult.variant).hash)
               }
             case None =>
               errors += VersionNotFoundException(targetName, targetId, targetVersion)
           }
       }
-      errors -> foundResults
+      errors -> foundContext
     }
     val all = Set() ++ grouped.par.flatMap { //NOTICE .par TODO: same as above (IO vs CPU)
       case (name, results) =>
@@ -150,13 +150,13 @@ object IvyImportResultInserter extends Logging {
           foundVersionErrors.foreach {
             case RepositoryNotFoundException(targetName, targetId, targetVersion) =>
               logger.warn("In: " + result.variant.id + " tried to find " + targetId + " version: " + targetVersion + " in repository: " + targetName + " but the repository was not there. Assuming it is an UNAPPLIED override (i.e. an override of a module which the source module does not actually depend on) so ignoring...")
-              Set.empty[ResolutionResult]
+              Set.empty[ContextValue]
             case VersionNotFoundException(targetName, targetId, targetVersion) =>
               logger.warn("In: " + result.variant.id + " tried to find " + targetId + " version: " + targetVersion + " in repository: " + targetName + " but that version was not there. Assuming it is an UNAPPLIED override (i.e. an override of a module which the source module does not actually depend on) so ignoring...")
-              Set.empty[ResolutionResult]
+              Set.empty[ContextValue]
           }
 
-          val thisModuleResults: Set[ResolutionResult] = {
+          val thisModuleContext: Set[ContextValue] = {
             val currentModuleHash = Module.getModuleHash(variant)
             val ivyResults = modules(currentModuleHash)
             ivyResults.map { ivyResult =>
@@ -178,16 +178,16 @@ object IvyImportResultInserter extends Logging {
                 } else throw new Exception("Did not find exactly one candidate with module hash: " + currentModuleHash + " in " + (ivyResultId, repository.dir.getAbsolutePath()) + ":\n" + candidates.mkString("\n"))
               }
 
-              ResolutionResult(ivyResultId, ivyResultRepository, None, ivyResultHash)
+              ContextValue(ivyResultId, ivyResultRepository, None, ivyResultHash)
             }
           }
 
-          val currentResults = allFoundVersionResults ++
-            thisModuleResults
+          val currentContext = allFoundVersionResults ++
+            thisModuleContext
 
-          val resolutionResultsMetadata = ResolutionResultsMetadata(currentResults.toSeq)
-          resolutionResultsMetadata.write(id, variantMetadata.hash, repository)
-          currentResults
+          val contextMetadata = ContextMetadata(currentContext.toSeq)
+          contextMetadata.write(id, variantMetadata.hash, repository)
+          currentContext
         }
         progress.update(1)
         completedResults

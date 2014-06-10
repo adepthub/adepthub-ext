@@ -18,7 +18,7 @@ import adepthub.models.GitSearchResult
 import adept.lockfile.Lockfile
 import java.io.FileOutputStream
 import adept.lockfile.LockfileConverters
-import adept.repository.models.ResolutionResult
+import adept.repository.models.ContextValue
 import adept.resolution.models.Variant
 import adept.resolution.models.Requirement
 import adept.repository.GitLoader
@@ -31,7 +31,7 @@ class Adept(baseDir: File, cacheManager: CacheManager, passphrase: Option[String
     (id.value + Id.Sep).contains(term)
   }
 
-  def localResolve(requirements: Set[Requirement], inputContext: Set[ResolutionResult], overriddenInputContext: Set[ResolutionResult], overriddenContext: Set[ResolutionResult], providedVariants: Set[Variant], overrides: Set[ResolutionResult] = Set.empty, unversionedBaseDirs: Set[File] = Set.empty) = {
+  def localResolve(requirements: Set[Requirement], inputContext: Set[ContextValue], overriddenInputContext: Set[ContextValue], overriddenContext: Set[ContextValue], providedVariants: Set[Variant], overrides: Set[ContextValue] = Set.empty, unversionedBaseDirs: Set[File] = Set.empty) = {
     val loader = new GitLoader(baseDir, overriddenContext, cacheManager = cacheManager, unversionedBaseDirs = unversionedBaseDirs, loadedVariants = providedVariants, progress = progress)
     val resolver = new Resolver(loader)
     val result = resolver.resolve(requirements)
