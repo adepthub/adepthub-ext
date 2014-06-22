@@ -1,4 +1,4 @@
-# AdeptHub
+# AdeptHub Extensions
 
 ## Intro
 This project (the adepthub-ext project) contains everything above and also provides the possibility to search, install and publish on adepthub.com. In addition it makes it possible to import from Ivy. AdeptHub extensions contain the notion of module. This is useful for tools that needs to support configurations. Further more it uses provides helpers for common notions such as version and binary-versions, which Adept does not need to resolve but which are commonly used. Lastly it contains helpers to make it easier to render end-user results.
