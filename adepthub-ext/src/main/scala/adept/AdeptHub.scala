@@ -65,11 +65,10 @@ import scala.concurrent.Await
 import adept.repository.metadata.ArtifactMetadata
 import adept.logging.JavaLogger
 import adept.ext.models.Module
-import adept.Adept
 import adept.ivy.IvyImportError
 import java.io.IOException
 import adept.ext.models.ResolveErrorReport
-import adepthub.models.SearchResult
+import adept.models.SearchResult
 import adept.ext.models.Module
 import adept.ext.VersionRank
 import adept.resolution.models.Variant
