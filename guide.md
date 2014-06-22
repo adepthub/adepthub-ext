@@ -1,27 +1,5 @@
 # Guide
 
-#### When to Use adepthub-ext (AdeptHub Extensions), adept-core or adept-lockfile
-
-The Adept(Hub) project is split into 3 parts: - The **adept-lockfile** project. This is a pure Java project
-capable only of 1) reading adept lockfiles (see the Lockfile section below for more info) and 2) downloading
-artifacts. This means it cannot resolve on its own. It is useful for bootstrapping something which has already
-been resolved, and because it is only is about 50kbs (and 2 jars) and therefore lightweight. Soon AdeptHub
-will provide resolution as a service, which means that the adept-lockfile project can be enough for online
-only resolution. - The **adept-core** project contains the resolution engine and what you need to handle/read
-Adept metadata. With Adept you can search locally, resolve and write lockfiles. What you do not get is
-integration with AdeptHub or Ivy. Also Adept does not know about "versions" or "binary-versions" and so on,
-because it is unnecessary to perform resolution. Adept also does not make any assumptions on how results should
-be displayed for an end user. This means that you will have to write this on you own or use the adepthub-ext
-project that has helpers for this. - This project (the **adepthub-ext** project) contains everything above and
-also provides the possibility to search, install and publish on adepthub.com. In addition it makes it possible
-to import from Ivy. AdeptHub extensions contain the notion of module. This is useful for tools that needs to
-support configurations. Further more it uses provides helpers for common notions such as version and
-binary-versions, which Adept does not need to resolve but which are commonly used. Lastly it contains helpers
-to make it easier to render end-user results.
-
-The preference should go toward adepthub-ext, because it is the total package. This guide explains how to use
-the adepthub-ext programmatically.
-
 ### Resolving with AdeptHub Extensions
 
 Before starting this guide, have a look at the `concepts.md` file in this directory to get a basic
