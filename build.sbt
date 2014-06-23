@@ -24,8 +24,10 @@ lazy val adepthubExt = project.in(file("adepthub-ext")).settings(
     "org.apache.ivy" % "ivy" % "2.3.0",
     "org.apache.httpcomponents" % "httpclient" % "4.3.3",
     "org.apache.httpcomponents" % "httpmime" % "4.3.3",
+    "org.apache.commons" % "commons-io" % "1.3.2",
     //TODO: typesafe ivy release is down :( renable "org.scala-sbt.ivy"  % "ivy" % "2.4.0-sbt-d6fca11d63402c92e4167cdf2da91a660d043392",
-    "org.scalatest" %% "scalatest" % "2.0" % "test")
+    "org.scalatest" %% "scalatest" % "2.0" % "test"
+  )
 ).dependsOn(adeptCore)
 
 lazy val adepthubUI = project.in(file("adepthub-ui")).settings(

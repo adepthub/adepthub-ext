@@ -1,80 +1,32 @@
 package adept
 
 import java.io.File
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import adept.logging.Logging
-import scala.concurrent.Future
 import adept.resolution.models.Id
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.blocking
-import adept.resolution.Resolver
-import adept.resolution.models.Attribute
 import adept.resolution.models.Constraint
-import adept.resolution.models.Variant
 import adept.resolution.models.Requirement
-import adept.repository.AttributeConstraintFilter
 import adept.repository.models.RepositoryName
-import adept.repository.models.Commit
-import adept.repository.models.VariantHash
 import adept.resolution.resolver.models.ResolveResult
-import adept.repository.models.RepositoryLocations
 import adept.repository.models.ContextValue
-import scala.concurrent.ExecutionContext
 import adept.repository.Repository
 import adept.repository.GitRepository
 import adept.repository.metadata.VariantMetadata
-import adept.repository.metadata.RankingMetadata
-import adept.repository.metadata.ContextMetadata
-import adept.repository.metadata.RepositoryLocationsMetadata
 import adept.ivy.IvyUtils
-import adept.ivy.IvyConstants
-import adept.ivy.IvyAdeptConverter
-import adept.ivy.IvyImportResultInserter
-import adept.ivy.IvyRequirements
-import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
-import org.eclipse.jgit.lib.{ProgressMonitor, TextProgressMonitor}
+import org.eclipse.jgit.lib.ProgressMonitor
 import adept.lockfile.{LockfileConverters, Lockfile}
 import adept.ext.AttributeDefaults
 import adept.repository.GitLoader
 import net.sf.ehcache.CacheManager
-import adept.ext.JavaVersions
-import adept.ext.VersionRank
-import scala.util.matching.Regex
-import java.util.zip.ZipEntry
-import java.io.FileOutputStream
-import java.util.zip.ZipOutputStream
-import java.io.FileInputStream
-import java.io.BufferedInputStream
-import org.apache.http.impl.client.DefaultHttpClient
-import org.apache.http.client.methods.HttpPost
-import org.apache.http.entity.mime.MultipartEntityBuilder
-import org.apache.http.entity.mime.content.StringBody
-import org.apache.http.entity.mime.HttpMultipartMode
-import org.apache.http.entity.mime.content.FileBody
-import org.apache.http.impl.client.HttpClientBuilder
-import org.apache.http.entity.ContentType
-import org.apache.http.client.methods.RequestBuilder
-import play.api.libs.json.Json
-import org.apache.http.StatusLine
-import _root_.adepthub.models.ContributionResult
-import adepthub.models._
-import org.apache.http.entity.StringEntity
-import adept.models.GitSearchResult
+import adept.models.{ImportSearchResult, GitSearchResult, SearchResult}
 import scala.concurrent.Await
 import adept.repository.metadata.ArtifactMetadata
-import adept.logging.JavaLogger
-import adept.ext.models.Module
 import adept.ivy.IvyImportError
 import java.io.IOException
 import adept.ext.models.ResolveErrorReport
-import adept.models.SearchResult
 import adept.ext.models.Module
 import adept.ext.VersionRank
 import adept.resolution.models.Variant
-import scala.util.Success
-import scala.util.Failure
-import adept.lockfile.LockfileContext
 
 object AdeptHub {
 
