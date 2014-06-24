@@ -5,38 +5,36 @@ import java.io.File
 import adept.AdeptHub
 import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
 import adept.resolution.models._
-import adepthub.models._
-import adept.repository.metadata._
-import adept.repository.models._
 import adept.ext.models.Module
 import adept.ext.VersionRank
 import adept.ivy.IvyUtils
 import adept.lockfile.Lockfile
-import adept.sbt.AdeptDefaults
 import adept.sbt.SbtUtils
-import adept.ivy.IvyConstants
 import adept.ext.AttributeDefaults
 import scala.util.Failure
 import scala.util.Success
 import adept.sbt.AdeptSbtUtils
-import adept.sbt.UserInputException
 import scala.util.Try
 import adept.sbt.UserInputException
 import adept.ext.JavaVersions
+import adept.models.ImportSearchResult
 
 object IvyInstallCommand {
   import sbt.complete.DefaultParsers._
-  import sbt.complete._
 
-  def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) = {
-    ((token("ivy-install") ~> (Space ~> NotSpaceClass.+).+).map { args =>
-      new IvyInstallCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion, confs, ivyConfigurations, lockfileGetter, adepthub)
-    })
+  def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String],
+            ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) = {
+    (token("ivy-install") ~> (Space ~> NotSpaceClass.+).+).map { args =>
+      new IvyInstallCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion, confs,
+        ivyConfigurations, lockfileGetter, adepthub)
+    }
 
   }
 }
 
-class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
+class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion:
+Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub)
+  extends AdeptCommand {
   def execute(state: State): State = {
     val logger = state.globalLogging.full
     val ivySbt = SbtUtils.evaluateTask(sbt.Keys.ivySbt, SbtUtils.currentProject(state), state)
@@ -55,9 +53,11 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
     val expression = prunedArgs.mkString("\n")
     val maybeMatch = expression match {
       case IvyRevisionRegex(org, name, revision) => Right((defaultConf, (org, name, revision)))
-      case IvyRevisionRegexScalaBinary(org, name, revision) => Right((defaultConf, (org, name + "_" + scalaBinaryVersion, revision)))
+      case IvyRevisionRegexScalaBinary(org, name, revision) => Right((defaultConf, (org, name + "_" +
+        scalaBinaryVersion, revision)))
       case ConfigIvyRevisionRegex(org, name, revision, conf) => Right((conf, (org, name, revision)))
-      case ConfigIvyRevisionRegexScalaBinary(org, name, revision, conf) => Right((conf, (org, name + "_" + scalaBinaryVersion, revision)))
+      case ConfigIvyRevisionRegexScalaBinary(org, name, revision, conf) => Right((conf, (org, name + "_" +
+        scalaBinaryVersion, revision)))
       case _ => Left("""Need something matching: "<org>" % "<name>" % "<revision>" or "<org>" % "<name>" % "<revision> % "<conf>"" or "<org>" %% "<name>" % "<revision>", but got: """ + expression)
     }
     maybeMatch match {
@@ -66,12 +66,14 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
         state.fail
       case Right((targetConf, (org, name, revision))) =>
         ivySbt.withIvy(IvyUtils.errorIvyLogger) { ivy =>
-          val maybeIvyAccepted = adepthub.ivyImport(org, name, revision, confs, scalaBinaryVersion, ivy = ivy, forceImport = isForced) match {
+          val maybeIvyAccepted = adepthub.ivyImport(org, name, revision, confs, scalaBinaryVersion, ivy = ivy,
+            forceImport = isForced) match {
             case Right(existing) if existing.nonEmpty && !isForced =>
               val alts = Module.getModules(existing.map { searchResult =>
                 searchResult.variant
               })
-              val msg = "No point in using ivy-install because this module have already been imported. Results:\n" + alts.map {
+              val msg = "No point in using ivy-install because this module have already been imported. Results:\n" +
+                alts.map {
                 case ((base, _), variants) =>
                   base + " version: " + variants.flatMap(VersionRank.getVersion).map(_.value).mkString(",")
               }.mkString("\n") + "\n" +
@@ -106,7 +108,8 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
                 case _ => false
               }
             }
-            (baseIdString, variants) <- AdeptHub.getUniqueModule(term, importedSearchResults).fold(errorMsg => Failure(UserInputException(errorMsg)), res => Success(res))
+            (baseIdString, variants) <- AdeptHub.getUniqueModule(term, importedSearchResults).fold(errorMsg =>
+              Failure(UserInputException(errorMsg)), res => Success(res))
             thisIvyConfig <- AdeptSbtUtils.getTargetConf(ivyConfigurations, targetConf)
           } yield {
             val lockfileFile = lockfileGetter(targetConf)
@@ -116,7 +119,8 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
               val lockfile = Lockfile.read(lockfileFile)
               val newRequirements = AdeptHub.variantsAsConfiguredRequirements(variants, baseIdString, confs)
               val requirements = AdeptHub.newLockfileRequirements(newRequirements, lockfile)
-              val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(importedSearchResults), lockfile)
+              val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(importedSearchResults),
+                lockfile)
               val overrides = inputContext
 
               //get lockfile locations:
@@ -133,7 +137,8 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
                 overrides = overrides,
                 providedVariants = javaVariants) match {
                   case Right((resolveResult, lockfile)) =>
-                    if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
+                    if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs())
+                      throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
                     adepthub.writeLockfile(lockfile, lockfileFile)
                     val msg = s"Installed $org#$name!$revision"
                     Right((lockfile, targetConf, lockfileFile, msg))
@@ -147,14 +152,16 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
                 case Right((lockfile, targetConf, file, msg)) =>
                   adepthub.writeLockfile(lockfile, file)
                   Success(targetConf -> msg)
-                case something => throw new Exception("Expected a right here but got: " + something + " in " + results)
+                case something => throw new Exception("Expected a right here but got: " + something + " in " +
+                  results)
               }
               Success(msgs.map { case Success((conf, msg)) => conf + ": " + msg }.mkString("\n"))
             } else {
               val msgs = results.collect {
                 case Left(msg) => msg
               }
-              Failure(UserInputException(msgs.map { case (conf, msg) => "For: " + conf + " got:\n" + msg }.mkString("\n")))
+              Failure(UserInputException(msgs.map { case (conf, msg) => "For: " + conf + " got:\n" + msg }
+                .mkString("\n")))
             }
           }
           result.flatten match {
