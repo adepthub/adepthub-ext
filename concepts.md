@@ -2,7 +2,7 @@
 
 To be able to resolve Adept needs 2 things: 
 - a set of requirements; and 
-- the context in which is Adept
+- the context in which Adept
 resolves
 
 The output of a successful resolution is a lockfile which contains the input requirements and context as well
