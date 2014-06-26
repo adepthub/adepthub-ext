@@ -5,20 +5,20 @@ import adept.repository.models._
 import adepthub.models._
 import adept.repository._
 import adept.repository.metadata._
-import scala.Option.option2Iterable
-import java.io.File
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import org.apache.http.client.methods.HttpPost
-import play.api.libs.json.Json
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
+import adept.models.{SearchResult, GitSearchResult, ImportSearchResult}
+import adept.services.JsonService
 
 class AdeptHubRecoverableException(msg: String) extends Exception
 
 private[adept] object Search {
 
-  def mergeSearchResults(imports: Set[ImportSearchResult], offline: Set[GitSearchResult], online: Set[GitSearchResult], alwaysIncludeImports: Boolean): Set[SearchResult] = {
+  def mergeSearchResults(imports: Set[ImportSearchResult], offline: Set[GitSearchResult], online:
+  Set[GitSearchResult], alwaysIncludeImports: Boolean): Set[SearchResult] = {
     val offlineRepoCommit = offline.map { result =>
       result.repository -> result.commit
     }
@@ -38,12 +38,13 @@ private[adept] object Search {
   }
 
   
-  def onlineSearch(url: String)(term: String, constraints: Set[Constraint], executionContext: ExecutionContext): Future[Set[GitSearchResult]] = {
+  def onlineSearch(url: String)(term: String, constraints: Set[Constraint], executionContext: ExecutionContext):
+  Future[Set[GitSearchResult]] = {
     Future {
       ///TODO: future me, I present my sincere excuses for this code: http client sucks! Rewrite this!
       val postRequest = new HttpPost(url + "/api/search")
       postRequest.addHeader("Content-Type", "application/json")
-      val jsonRequest = Json.prettyPrint(Json.toJson(SearchRequest(term, constraints)))
+      val jsonRequest = SearchRequest(term, constraints).jsonString
       val entity = new StringEntity(jsonRequest)
       postRequest.setEntity(entity)
       val httpClientBuilder = HttpClientBuilder.create()
@@ -52,18 +53,15 @@ private[adept] object Search {
         val response = httpClient.execute(postRequest)
         try {
           val status = response.getStatusLine()
-          val responseString = io.Source.fromInputStream(response.getEntity().getContent()).getLines.mkString("\n")
+          val gitSearchResults = Set[GitSearchResult]()
+          val jsonString = JsonService.parseJson(response.getEntity().getContent, {(parser, fieldName) =>
+            JsonService.parseSet(parser, () => GitSearchResult.fromJson(parser))
+          })
 
           if (status.getStatusCode() == 200) {
-            val jsonString = responseString
-            Json.fromJson[Set[GitSearchResult]](Json.parse(jsonString)).asEither match {
-              case Right(results) =>
-                results.map(_.copy(isLocal = false))
-              case Left(error) =>
-                throw new Exception("Could not parse AdeptHub response as search results. Got:\n" + responseString)
-            }
+            gitSearchResults.map(_.copy(isLocal = false))
           } else {
-            throw new AdeptHubRecoverableException("AdeptHub returned with: " + status + ":\n" + responseString)
+            throw new AdeptHubRecoverableException("AdeptHub returned with: " + status + ":\n" + jsonString)
           }
         } finally {
           response.close()
@@ -75,7 +73,8 @@ private[adept] object Search {
   }
 
   //TODO: remove duplicate code in Adept.localSearch
-  def searchImportRepository(adeptHub: AdeptHub)(term: String, name: RepositoryName, constraints: Set[Constraint] = Set.empty): Set[ImportSearchResult] = {
+  def searchImportRepository(adeptHub: AdeptHub)(term: String, name: RepositoryName, constraints: Set[Constraint]
+  = Set.empty): Set[ImportSearchResult] = {
     val repository = new Repository(adeptHub.importsDir, name)
     if (repository.exists) {
       VariantMetadata.listIds(repository).flatMap { id =>
@@ -85,7 +84,8 @@ private[adept] object Search {
               .getOrElse(throw new Exception("Could not read rank id: " + (id, rankId, repository.dir.getAbsolutePath)))
             ranking.variants.map { hash =>
               VariantMetadata.read(id, hash, repository, checkHash = true).map(_.toVariant(id))
-                .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash, repository.dir.getAbsolutePath)))
+                .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash,
+                repository.dir.getAbsolutePath)))
             }.filter { variant =>
               constraints.isEmpty ||
                 AttributeConstraintFilter.matches(variant.attributes.toSet, constraints)
@@ -105,7 +105,8 @@ private[adept] object Search {
     }
   }
 
-  def searchImports(adeptHub: AdeptHub)(term: String, constraints: Set[Constraint] = Set.empty): Set[ImportSearchResult] = {
+  def searchImports(adeptHub: AdeptHub)(term: String, constraints: Set[Constraint] = Set.empty):
+  Set[ImportSearchResult] = {
     Repository.listRepositories(adeptHub.importsDir).flatMap { name =>
       searchImportRepository(adeptHub)(term, name, constraints)
     }

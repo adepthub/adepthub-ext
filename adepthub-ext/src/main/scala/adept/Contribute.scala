@@ -10,7 +10,6 @@ import org.apache.http.client.methods.RequestBuilder
 import org.apache.http.entity.mime.MultipartEntityBuilder
 import org.apache.http.entity.mime.HttpMultipartMode
 import org.apache.http.impl.client.HttpClientBuilder
-import play.api.libs.json.Json
 import adepthub.models.ContributionResult
 import adept.repository.GitRepository
 import org.eclipse.jgit.lib.ProgressMonitor
@@ -18,6 +17,7 @@ import adept.lockfile.{Commit => LockfileCommit}
 import adept.lockfile.{RepositoryLocation => LockfileRepositoryLocation}
 import adept.lockfile.LockfileContext
 import adept.lockfile.Lockfile
+import adept.services.JsonService
 
 object Contribute extends Logging {
 
@@ -36,7 +36,7 @@ object Contribute extends Logging {
     val output = new FileOutputStream(zipFile)
     val zipOutput = new ZipOutputStream(output)
     val BufferSize = 4096 //random number
-    var bytes = new Array[Byte](BufferSize)
+    val bytes = new Array[Byte](BufferSize)
     try {
       walkTree(importsDir).filter(_.isFile).foreach { file =>
         val zipEntry = getZipEntry(file, importsDir)
@@ -67,9 +67,16 @@ object Contribute extends Logging {
     val newContext = lockfile.getContext().asScala.map { value =>
       contributionByRepos.get(adept.repository.models.RepositoryName(value.repository.value)) match {
         case Some(matchingContribs) =>
-          if (matchingContribs.size != 1) throw new Exception("Got more than one contribution per repository. This is unexpected so we fail. Contributions:\n" + contributions.mkString("\n"))
+          if (matchingContribs.size != 1) {
+            throw new Exception(
+              "Got more than one contribution per repository. This is unexpected so we fail. Contributions:\n" +
+                contributions.mkString("\n"))
+          }
           val matchingContrib = matchingContribs.head
-          new LockfileContext(value.info, value.id, value.repository, matchingContrib.locations.map { new adept.lockfile.RepositoryLocation(_) }.toSet.asJava, new adept.lockfile.Commit(matchingContrib.commit.value), value.hash)
+          new LockfileContext(value.info, value.id, value.repository,
+            matchingContrib.locations.map {
+            new adept.lockfile.RepositoryLocation(_) }.toSet.asJava, new adept.lockfile.Commit(
+            matchingContrib.commit.value), value.hash)
         case None =>
           value
       }
@@ -77,7 +84,8 @@ object Contribute extends Logging {
     new Lockfile(lockfile.getRequirements(), newContext.asJava, lockfile.getArtifacts())
   }
 
-  def sendFile(url: String, baseDir: File, passphrase: Option[String], progress: ProgressMonitor)( file: File) = {
+  def sendFile(url: String, baseDir: File, passphrase: Option[String], progress:
+  ProgressMonitor)( file: File) = {
     ///TODO: future me, I present my sincere excuses for this code: http client sucks!
     val requestBuilder = RequestBuilder.post()
     requestBuilder.setUri(url + "/api/ivy/import")
@@ -93,34 +101,32 @@ object Contribute extends Logging {
       val response = httpClient.execute(requestBuilder.build())
       try {
         val status = response.getStatusLine()
-        val responseString = io.Source.fromInputStream(response.getEntity().getContent()).getLines.mkString("\n")
+        var results = Seq[ContributionResult]()
+        val json = JsonService.parseJson(response.getEntity().getContent, (parser, fieldName) => {
+          results = JsonService.parseSeq(parser, () => ContributionResult.fromJson(parser))
+        })
 
         if (status.getStatusCode() == 200) {
-          val jsonString = responseString
-          Json.fromJson[Seq[ContributionResult]](Json.parse(jsonString)).asEither match {
-            case Left(errors) =>
-              logger.debug(errors.mkString(","))
-              throw new Exception("Could not parse contribution from AdeptHub! Aborting...")
-            case Right(results) =>
-              results.foreach { result =>
-                val repository = new GitRepository(baseDir, result.repository)
-                if (!repository.exists) {
-                  if (result.locations.size > 1) logger.warn("Ignoring locations: " + result.locations.tail)
-                  val uri = result.locations.head
-                  repository.clone(uri, passphrase, progress)
-                } else if (repository.exists) {
-                  result.locations.foreach { location =>
-                    repository.addRemoteUri(GitRepository.DefaultRemote, location)
-                  }
-                  repository.pull(GitRepository.DefaultRemote, GitRepository.DefaultBranchName, passphrase)
-                } else {
-                  logger.warn("Ignoring " + result)
-                }
+          results.foreach { result =>
+            val repository = new GitRepository(baseDir, result.repository)
+            if (!repository.exists) {
+              if (result.locations.size > 1) logger.warn("Ignoring locations: " +
+                result.locations.tail)
+              val uri = result.locations.head
+              repository.clone(uri, passphrase, progress)
+            } else if (repository.exists) {
+              result.locations.foreach { location =>
+                repository.addRemoteUri(GitRepository.DefaultRemote, location)
               }
-              results
+              repository.pull(GitRepository.DefaultRemote, GitRepository.DefaultBranchName,
+                passphrase)
+            } else {
+              logger.warn("Ignoring " + result)
+            }
           }
+          results
         } else {
-          throw new Exception("AdeptHub returned with: " + status + ":\n" + responseString)
+          throw new Exception("AdeptHub returned with: " + status + ":\n" + json)
         }
       } finally {
         response.close()
@@ -129,9 +135,9 @@ object Contribute extends Logging {
       httpClient.close()
     }
   }
-  
 
-  def contribute(url: String, baseDir: File, passphrase: Option[String], progress: ProgressMonitor, importsDir: File): Set[ContributionResult] = {
+  def contribute(url: String, baseDir: File, passphrase: Option[String], progress: ProgressMonitor,
+                 importsDir: File): Set[ContributionResult] = {
     sendFile(url, baseDir, passphrase, progress)(compress(importsDir)).toSet
   }
 }

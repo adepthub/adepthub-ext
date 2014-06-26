@@ -41,10 +41,8 @@ private[adept] object IvyUtils extends Logging {
         Option(manager.getResolvedIvyFileInCache(mrid)).toList :::
         Option(manager.getResolvedIvyPropertiesInCache(mrid)).toList :::
         Option(manager.getConfigurationResolveReportsInCache(resolveId)).toList.flatten
-    import scala.reflect.io.Directory
-    files.foreach { file =>
-      (new Directory(file)).deleteRecursively() //TODO: I hope this works on files and on directories? Perhaps use something else? 
-    }
+    import org.apache.commons.io.FileUtils
+    files.foreach { file => FileUtils.deleteDirectory(file) }
     //TODO: replace the above with this: manager.clean() ?
   }
 
