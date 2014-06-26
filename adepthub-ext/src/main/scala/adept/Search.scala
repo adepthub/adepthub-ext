@@ -60,13 +60,6 @@ private[adept] object Search {
 
           if (status.getStatusCode() == 200) {
             gitSearchResults.map(_.copy(isLocal = false))
-
-//            Json.fromJson[Set[GitSearchResult]](Json.parse(jsonString)).asEither match {
-//              case Right(results) =>
-//                results.map(_.copy(isLocal = false))
-//              case Left(error) =>
-//                throw new Exception("Could not parse AdeptHub response as search results. Got:\n" + responseString)
-//            }
           } else {
             throw new AdeptHubRecoverableException("AdeptHub returned with: " + status + ":\n" + jsonString)
           }
