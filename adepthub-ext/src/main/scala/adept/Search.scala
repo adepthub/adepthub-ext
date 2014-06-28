@@ -38,7 +38,8 @@ private[adept] object Search {
   }
 
   
-  def onlineSearch(url: String)(term: String, constraints: Set[Constraint], executionContext: ExecutionContext):
+  def onlineSearch(url: String)(term: String, constraints: Set[Constraint], executionContext:
+  ExecutionContext):
   Future[Set[GitSearchResult]] = {
     Future {
       ///TODO: future me, I present my sincere excuses for this code: http client sucks! Rewrite this!
@@ -52,16 +53,16 @@ private[adept] object Search {
       try {
         val response = httpClient.execute(postRequest)
         try {
-          val status = response.getStatusLine()
-          val gitSearchResults = Set[GitSearchResult]()
-          val jsonString = JsonService.parseJson(response.getEntity().getContent, {(parser, fieldName) =>
-            JsonService.parseSet(parser, () => GitSearchResult.fromJson(parser))
-          })
+          val status = response.getStatusLine
+          val (gitSearchResults, jsonString) = JsonService.parseJson(response.getEntity.getContent,
+            Map(("results", JsonService.parseSet(_, GitSearchResult.fromJson))
+          ), valueMap => valueMap.getSet[GitSearchResult]("results"))
 
-          if (status.getStatusCode() == 200) {
+          if (status.getStatusCode == 200) {
             gitSearchResults.map(_.copy(isLocal = false))
           } else {
-            throw new AdeptHubRecoverableException("AdeptHub returned with: " + status + ":\n" + jsonString)
+            throw new AdeptHubRecoverableException("AdeptHub returned with: " + status + ":\n" +
+              jsonString)
           }
         } finally {
           response.close()
@@ -73,7 +74,8 @@ private[adept] object Search {
   }
 
   //TODO: remove duplicate code in Adept.localSearch
-  def searchImportRepository(adeptHub: AdeptHub)(term: String, name: RepositoryName, constraints: Set[Constraint]
+  def searchImportRepository(adeptHub: AdeptHub)(term: String, name: RepositoryName, constraints:
+  Set[Constraint]
   = Set.empty): Set[ImportSearchResult] = {
     val repository = new Repository(adeptHub.importsDir, name)
     if (repository.exists) {
@@ -81,7 +83,8 @@ private[adept] object Search {
         if (adeptHub.matches(term, id)) {
           val variants = RankingMetadata.listRankIds(id, repository).flatMap { rankId =>
             val ranking = RankingMetadata.read(id, rankId, repository)
-              .getOrElse(throw new Exception("Could not read rank id: " + (id, rankId, repository.dir.getAbsolutePath)))
+              .getOrElse(throw new Exception("Could not read rank id: " + (id, rankId,
+              repository.dir.getAbsolutePath)))
             ranking.variants.map { hash =>
               VariantMetadata.read(id, hash, repository, checkHash = true).map(_.toVariant(id))
                 .getOrElse(throw new Exception("Could not read variant: " + (rankId, id, hash,

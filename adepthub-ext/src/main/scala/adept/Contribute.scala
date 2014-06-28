@@ -100,11 +100,10 @@ object Contribute extends Logging {
       logger.info("Uploading contribution to AdeptHub - this might take a while...")
       val response = httpClient.execute(requestBuilder.build())
       try {
-        val status = response.getStatusLine()
-        var results = Seq[ContributionResult]()
-        val json = JsonService.parseJson(response.getEntity().getContent, (parser, fieldName) => {
-          results = JsonService.parseSeq(parser, () => ContributionResult.fromJson(parser))
-        })
+        val status = response.getStatusLine
+        val (results, json) = JsonService.parseJson(response.getEntity().getContent, Map(
+          ("results", JsonService.parseSeq(_, ContributionResult.fromJson))
+        ), valueMap => valueMap.getSeq[ContributionResult]("results"))
 
         if (status.getStatusCode() == 200) {
           results.foreach { result =>
