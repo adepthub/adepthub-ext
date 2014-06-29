@@ -13,8 +13,6 @@ import org.apache.http.impl.client.HttpClientBuilder
 import adepthub.models.ContributionResult
 import adept.repository.GitRepository
 import org.eclipse.jgit.lib.ProgressMonitor
-import adept.lockfile.{Commit => LockfileCommit}
-import adept.lockfile.{RepositoryLocation => LockfileRepositoryLocation}
 import adept.lockfile.LockfileContext
 import adept.lockfile.Lockfile
 import adept.services.JsonService
@@ -28,7 +26,7 @@ object Contribute extends Logging {
     Seq(file) ++: children.flatMap(walkTree(_))
   }
   def getZipEntry(file: File, baseDir: File) = {
-    new ZipEntry(file.getAbsolutePath().replace(baseDir.getAbsolutePath(), ""))
+    new ZipEntry(file.getAbsolutePath.replace(baseDir.getAbsolutePath, ""))
   }
   def compress(importsDir: File) = {
     val zipFile = File.createTempFile("adept-", "-import.zip")
@@ -65,7 +63,8 @@ object Contribute extends Logging {
     import collection.JavaConverters._
     val contributionByRepos = contributions.groupBy(_.repository)
     val newContext = lockfile.getContext().asScala.map { value =>
-      contributionByRepos.get(adept.repository.models.RepositoryName(value.repository.value)) match {
+      contributionByRepos.get(adept.repository.models.RepositoryName(value.repository.value))
+      match {
         case Some(matchingContribs) =>
           if (matchingContribs.size != 1) {
             throw new Exception(
@@ -81,7 +80,7 @@ object Contribute extends Logging {
           value
       }
     }
-    new Lockfile(lockfile.getRequirements(), newContext.asJava, lockfile.getArtifacts())
+    new Lockfile(lockfile.getRequirements, newContext.asJava, lockfile.getArtifacts)
   }
 
   def sendFile(url: String, baseDir: File, passphrase: Option[String], progress:
@@ -101,11 +100,10 @@ object Contribute extends Logging {
       val response = httpClient.execute(requestBuilder.build())
       try {
         val status = response.getStatusLine
-        val (results, json) = JsonService.parseJson(response.getEntity().getContent, Map(
-          ("results", JsonService.parseSeq(_, ContributionResult.fromJson))
-        ), valueMap => valueMap.getSeq[ContributionResult]("results"))
-
-        if (status.getStatusCode() == 200) {
+        if (status.getStatusCode == 200) {
+          val (results, _) = JsonService.parseJson(response.getEntity.getContent, Map(
+            ("results", JsonService.parseSeq(_, ContributionResult.fromJson))
+          ), valueMap => valueMap.getSeq[ContributionResult]("results"))
           results.foreach { result =>
             val repository = new GitRepository(baseDir, result.repository)
             if (!repository.exists) {
@@ -125,6 +123,8 @@ object Contribute extends Logging {
           }
           results
         } else {
+          val json = io.Source.fromInputStream(response.getEntity.getContent).getLines()
+            .mkString("\n")
           throw new Exception("AdeptHub returned with: " + status + ":\n" + json)
         }
       } finally {
