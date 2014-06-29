@@ -13,7 +13,7 @@ import org.apache.http.impl.client.HttpClientBuilder
 import adept.models.{SearchResult, GitSearchResult, ImportSearchResult}
 import adept.services.JsonService
 
-class AdeptHubRecoverableException(msg: String) extends Exception
+class AdeptHubRecoverableException(msg: String) extends Exception(msg)
 
 private[adept] object Search {
 
@@ -54,15 +54,14 @@ private[adept] object Search {
         val response = httpClient.execute(postRequest)
         try {
           val status = response.getStatusLine
-          val (gitSearchResults, jsonString) = JsonService.parseJson(response.getEntity.getContent,
-            Map(("results", JsonService.parseSet(_, GitSearchResult.fromJson))
-          ), valueMap => valueMap.getSet[GitSearchResult]("results"))
-
           if (status.getStatusCode == 200) {
+            val (gitSearchResults, _) = JsonService.parseJson(response.getEntity.getContent, Map(
+              ("results", JsonService.parseSet(_, GitSearchResult.fromJson))
+            ), valueMap => valueMap.getSet[GitSearchResult]("results"))
             gitSearchResults.map(_.copy(isLocal = false))
           } else {
             throw new AdeptHubRecoverableException("AdeptHub returned with: " + status + ":\n" +
-              jsonString)
+              io.Source.fromInputStream(response.getEntity.getContent).getLines().mkString("\n"))
           }
         } finally {
           response.close()
