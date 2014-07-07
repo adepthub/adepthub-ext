@@ -1,25 +1,17 @@
 package adept.ivy
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import adept.test.TestDetails
 import java.io.File
-import org.apache.ivy.core.module.descriptor.DefaultModuleDescriptor
-import org.apache.ivy.core.module.descriptor.DefaultDependencyDescriptor
-import org.apache.ivy.core.module.id.ModuleRevisionId
-import org.apache.ivy.core.module.descriptor.DefaultExcludeRule
-import org.apache.ivy.core.module.descriptor.{ Configuration => IvyConfiguration }
-import org.apache.ivy.core.module.id.ArtifactId
-import org.apache.ivy.core.module.id.ModuleId
-import org.apache.ivy.plugins.matcher.ExactPatternMatcher
+
 import adept.ext.VersionRank
-import adept.resolution.models.Id
-import adept.repository.models.RepositoryName
 import adept.repository.GitRepository
+import adept.repository.models.RepositoryName
+import adept.resolution.models.Id
+import adept.test.TestDetails
 import org.apache.ivy.Ivy
-import adept.resolution.models.Variant
-import adept.resolution.models.Attribute
-import adept.resolution.models.Requirement
+import org.apache.ivy.core.module.descriptor.{DefaultDependencyDescriptor, DefaultExcludeRule, DefaultModuleDescriptor, Configuration => IvyConfiguration}
+import org.apache.ivy.core.module.id.{ArtifactId, ModuleId, ModuleRevisionId}
+import org.apache.ivy.plugins.matcher.ExactPatternMatcher
+import org.scalatest.{FunSuite, Matchers}
 
 class IvyIntegrationTest extends FunSuite with Matchers {
   import adept.test.FileUtils._
@@ -106,7 +98,7 @@ class IvyIntegrationTest extends FunSuite with Matchers {
     }
   }
 
-  test("Ivy end-to-end: adepts own (many different)") {
+  test("Ivy end-to-end: adept's own (many different)") {
     pending
   }
 
