@@ -52,9 +52,11 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
    * Loads and converts results from an Ivy module to IyyImportResults which Adept can use.
    *
    * Conversion from Ivy to Adept consists of 2 steps:
-   * 1) Load Ivy import results from Ivy: @see [[adept.ivy.IvyAdeptConverter.loadAsIvyImportResults]] in this class
+   * 1) Load Ivy import results from Ivy: @see [[adept.ivy.IvyAdeptConverter.loadAsIvyImportResults]] in
+   * this class
    * 2) Insert Ivy import results into corresponding Adept repositories: @see [[adept.ivy.IvyImportResultInserter.insertAsResolutionResults]]
-   * 3) Use version info (the second part of the tuple) from loadAsIvyImportResults to generate resolution results that are the same as Ivy
+   * 3) Use version info (the second part of the tuple) from loadAsIvyImportResults to generate resolution
+   * results that are the same as Ivy
    *
    * To convert dependencies to requirements @see [[adept.ivy.IvyRequirements.convertIvyAsRequirements]]
    *
@@ -66,40 +68,43 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
       val mrid = module.getModuleRevisionId()
       progress.beginTask("Resolving Ivy module(s) for " + mrid, module.getDependencies().size)
       progress.update(0)
-      getResolveReport(module, resolveOptions(module.getConfigurationsNames().toList: _*)) match {
+      getResolveReport(module, resolveOptions(module.getConfigurationsNames.toList: _*)) match {
         case Right(resolveReport) =>
           progress.update(module.getDependencies().size)
           progress.endTask()
-          if (module == null) throw new Exception("Missing module for " + mrid + ". Perhaps Ivy cannot resolve?")
-          val configDependencyTree = createConfigDependencyTree(module, resolveReport.getConfigurations().toSet,
+          if (module == null) throw new Exception("Missing module for " + mrid +
+            ". Perhaps Ivy cannot resolve?")
+          val configDependencyTree = createConfigDependencyTree(module, resolveReport.getConfigurations.toSet,
             onlyPublic = false) { confName =>
             resolveReport
           }
-          progress.start(module.getDependencies().size)
+          progress.start(module.getDependencies.size)
           var allResults = Set.empty[IvyImportResult]
           var errors = Set.empty[IvyImportError]
 
           val children = flattenConfigDependencyTree(configDependencyTree)(mrid)
           children.foreach { ivyNode =>
             val currentIvyId = ivyNode.getId()
-            val newResults = ivyImport(currentIvyId.getOrganisation, currentIvyId.getName, currentIvyId.getRevision, progress)
+            val newResults = ivyImport(currentIvyId.getOrganisation, currentIvyId.getName,
+              currentIvyId.getRevision, progress)
             allResults ++= newResults.right.getOrElse(Set.empty[IvyImportResult])
             errors ++= newResults.left.getOrElse(Set.empty[IvyImportError])
           }
 
-          //TODO: this part of the code doesn't feel right, but we need it to match the exact versions that ivy produces
+          //TODO: this part of the code doesn't feel right, but we need it to match the exact versions
+          // that ivy produces
           val allIds = allResults.map(_.variant.id)
 
           val versionInfo = configDependencyTree.keys.map { confName =>
             val depdendencyTree = configDependencyTree(confName)
             confName -> depdendencyTree(mrid).flatMap { ivyNode =>
-              val currentIvyId = ivyNode.getId()
+              val currentIvyId = ivyNode.getId
               val currentAdeptId = ivyIdAsId(currentIvyId.getModuleId)
               val foundIds = allIds.collect {
                 case id if id.value.startsWith(currentAdeptId.value + Id.Sep + IdConfig) => id
               } + currentAdeptId
               foundIds.map { id =>
-                (ivyIdAsRepositoryName(currentIvyId.getModuleId), id, Version(currentIvyId.getRevision()))
+                (ivyIdAsRepositoryName(currentIvyId.getModuleId), id, Version(currentIvyId.getRevision))
               }
             }
           }.toMap
@@ -130,30 +135,32 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
       case Right(resolveReport) =>
         val configurationReport = resolveReport.getConfigurationReport(confName)
         configurationReport.getAllArtifactsReports.foreach { artifactReport =>
-          val ivyArtifact = artifactReport.getArtifact()
+          val ivyArtifact = artifactReport.getArtifact
           val ivyArtifactHash = {
-            val fis = new FileInputStream(artifactReport.getLocalFile())
+            val fis = new FileInputStream(artifactReport.getLocalFile)
             try {
               new ArtifactHash(Hasher.hash(fis))
             } finally {
               fis.close()
             }
           }
-          val mrid = ivyArtifact.getModuleRevisionId()
+          val mrid = ivyArtifact.getModuleRevisionId
           adeptExtraArtifacts -= ivyArtifactHash //we found an artifact in ivy which we was found in adept
           if (!allDepArtifacts.isDefinedAt(ivyArtifactHash)) {
-            ivyExtraArtifacts += ((ivyArtifactHash, mrid)) //we found an artifact in ivy which do not have in adept
+            //we found an artifact in ivy which do not have in adept
+            ivyExtraArtifacts += ((ivyArtifactHash, mrid))
           }
-          (ivyArtifact.getConfigurations().toSet + configurationReport.getConfiguration).foreach { confName =>
+          (ivyArtifact.getConfigurations.toSet + configurationReport.getConfiguration).foreach { confName =>
             val targetId = ivyIdAsId(mrid.getModuleId, confName)
             resolvedVariants.get(targetId) match {
               case Some(variant) =>
                 val matchingArtifacts = variant.artifacts.filter { artifact =>
-                  artifact.attribute(ArtifactConfAttribute).values == ivyArtifact.getConfigurations().toSet
+                  artifact.attribute(ArtifactConfAttribute).values == ivyArtifact.getConfigurations.toSet
                 }
                 //we found  1 artifact matching but the hashes are different
                 if (matchingArtifacts.size == 1 && ivyArtifactHash != matchingArtifacts.head.hash) {
-                  nonMatchingArtifacts += IvyVerificationError(ivyArtifactHash, variant, matchingArtifacts.map(_.hash))
+                  nonMatchingArtifacts += IvyVerificationError(ivyArtifactHash, variant, matchingArtifacts
+                    .map(_.hash))
                 }
               case None => //pass
             }
@@ -179,7 +186,8 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
 
   private def convertResolveReportToEither(resolveReport: ResolveReport) = {
     if (resolveReport.hasError) {
-      val onlyFailedOnAllowedFailedType = resolveReport.getFailedArtifactsReports().forall { artifactReport =>
+      val onlyFailedOnAllowedFailedType = resolveReport.getFailedArtifactsReports().forall {
+        artifactReport =>
         val failedType = artifactReport.getType
         logger.warn("Failed to get: " + artifactReport + " with type: " + artifactReport.getType)
         allowFailedArtifactTypes(failedType)
@@ -219,12 +227,15 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
     convertResolveReportToEither(ivy.resolve(mrid, resolveOptions, changing))
   }
 
-  private def getCaller(org: String, name: String) = ModuleRevisionId.newInstance(org, name + "-caller", "working")
+  private def getCaller(org: String, name: String) = ModuleRevisionId.newInstance(org, name +
+    "-caller", "working")
 
-  def ivyImport(org: String, name: String, revision: String, progress: ProgressMonitor): Either[Set[IvyImportError],
+  def ivyImport(org: String, name: String, revision: String, progress: ProgressMonitor):
+  Either[Set[IvyImportError],
     Set[IvyImportResult]] = {
     var visited = Set.empty[ModuleRevisionId]
-    def ivyImport(org: String, name: String, version: String, progress: ProgressMonitor): Either[Set[IvyImportError],
+    def ivyImport(org: String, name: String, version: String, progress: ProgressMonitor):
+    Either[Set[IvyImportError],
       Set[IvyImportResult]] = {
       ivy.synchronized { //ivy is not thread safe
         val mrid = ModuleRevisionId.newInstance(org, name, version)
@@ -234,13 +245,15 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
           case Right(resolveReport) =>
             val workingNode = getParentNode(resolveReport)
             val module = workingNode.getDescriptor()
-            if (module == null) throw new Exception("Ivy import failed! Could not get a module for: " + workingNode)
+            if (module == null) throw new Exception("Ivy import failed! Could not get a module for: " +
+              workingNode)
             val mrid = module.getModuleRevisionId()
             visited += mrid
             progress.update(module.getDependencies().size + 1)
             progress.endTask()
 
-            val configDependencyTree = createConfigDependencyTree(module, resolveReport.getConfigurations().toSet) { confName =>
+            val configDependencyTree = createConfigDependencyTree(module, resolveReport
+              .getConfigurations().toSet) { confName =>
               resolveReport
             }
 
@@ -252,7 +265,8 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
             children.filter(ivyNode => !visited(ivyNode.getId)).foreach { ivyNode =>
               val currentIvyId = ivyNode.getId()
               visited += currentIvyId
-              val newResults = ivyImport(currentIvyId.getOrganisation, currentIvyId.getName, currentIvyId.getRevision, progress)
+              val newResults = ivyImport(currentIvyId.getOrganisation, currentIvyId.getName,
+                currentIvyId.getRevision, progress)
               allResults ++= newResults.right.getOrElse(Set.empty[IvyImportResult])
               errors ++= newResults.left.getOrElse(Set.empty[IvyImportError])
             }
@@ -275,14 +289,15 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
       }
   }
 
-  private def extractRequirementsAndExcludes(thisVariantId: Id, confName: String, currentIvyNode: IvyNode, loaded: Set[IvyNode]) = {
+  private def extractRequirementsAndExcludes(thisVariantId: Id, confName: String, currentIvyNode: IvyNode,
+                                             loaded: Set[IvyNode]) = {
     var excludeRules = Map.empty[(Id, Id), Set[(String, String)]]
 
     val requirements = loaded.flatMap { ivyNode =>
       val currentExcludeRules = getExcludeRules(currentIvyNode, ivyNode)
       if (!ivyNode.isEvicted(confName)) {
         val requirements = getConfigurations(ivyNode, confName).map { requirementConf =>
-          Requirement(ivyIdAsId(ivyNode.getId.getModuleId, requirementConf.getName()), Set.empty, Set.empty)
+          Requirement(ivyIdAsId(ivyNode.getId.getModuleId, requirementConf.getName), Set.empty, Set.empty)
         } + Requirement(ivyIdAsId(ivyNode.getId.getModuleId), Set.empty, Set.empty)
 
         requirements.foreach { requirement =>
@@ -304,7 +319,8 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
   }
 
   private def extractArtifactInfosAndErrors(mrid: ModuleRevisionId, confName: String) = {
-    def tryExtract(retry: Boolean): (Set[(String, Array[String], File, ArtifactHash, String)], Set[ArtifactLocationError]) = try {
+    def tryExtract(retry: Boolean): (Set[(String, Array[String], File, ArtifactHash, String)],
+      Set[ArtifactLocationError]) = try {
       var errors = Set.empty[ArtifactLocationError]
       val resolveReport = ivy.resolve(mrid, resolveOptions(confName), changing)
       resolveReport.getArtifactsReports(mrid).flatMap { artifactReport =>
@@ -319,25 +335,28 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
           }
 
           val location =
-            if (!artifactReport.getArtifactOrigin().getLocation().startsWith("http")) {
+            if (!artifactReport.getArtifactOrigin().getLocation.startsWith("http")) {
               //sometimes Ivy does not keep the artifact origin so we must locate it again:
               val resolverLocation = for {
-                dependencies <- Option(resolveReport.getDependencies()).toArray //should be ok wrt conf, because resolve report is on conf name
+                //should be ok wrt conf, because resolve report is on conf name
+                dependencies <- Option(resolveReport.getDependencies).toArray
                 dependency <- dependencies.toArray(new Array[IvyNode](resolveReport.getDependencies().size))
-                moduleRevision <- Option(dependency.getModuleRevision()).toArray
-                artifactRevId = artifactReport.getArtifact().getModuleRevisionId()
-                resolveReportRevId = moduleRevision.getId()
-                if (artifactRevId.getOrganisation() == resolveReportRevId.getOrganisation())
-                if (artifactRevId.getName == resolveReportRevId.getName)
-                if (artifactRevId.getRevision() == resolveReportRevId.getRevision())
-                artifactResolver <- Option(moduleRevision.getArtifactResolver()).toArray
+                moduleRevision <- Option(dependency.getModuleRevision).toArray
+                artifactRevId = artifactReport.getArtifact().getModuleRevisionId
+                resolveReportRevId = moduleRevision.getId
+                if artifactRevId.getOrganisation == resolveReportRevId.getOrganisation
+                if artifactRevId.getName == resolveReportRevId.getName
+                if artifactRevId.getRevision == resolveReportRevId.getRevision
+                artifactResolver <- Option(moduleRevision.getArtifactResolver).toArray
               } yield {
                 artifactResolver.locate(artifactReport.getArtifact)
               }
-              if (resolverLocation.headOption.isDefined && resolverLocation.headOption.get.getLocation().startsWith("http")) {
-                resolverLocation.headOption.get.getLocation() //using the one found by locate
+              if (resolverLocation.headOption.isDefined && resolverLocation.headOption.get.getLocation().
+                startsWith("http")) {
+                  resolverLocation.headOption.get.getLocation //using the one found by locate
               } else { //could not find location here either
-                errors += ArtifactLocationError(artifactReport.getArtifactOrigin().getLocation, file) //we must have somewhere we can download this files from 
+                //we must have somewhere we can download this files from
+                errors += ArtifactLocationError(artifactReport.getArtifactOrigin.getLocation, file)
               }
               artifactReport.getArtifactOrigin().getLocation()
             } else {
@@ -357,13 +376,18 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
           }
         } else {
           if (artifactReport.getArtifact().getConfigurations().toList.isEmpty) {
-            logger.debug("Ivy has an issue where sometimes configurations are not read. Reading them manually for: " + mrid + " conf: " + confName)
-            //WORKAROUND :(  there is an issue in ivy where it sometimes leaves out the confs for artifacts (I think this happens for modules that do not have dependencies)
+            logger.debug(
+              "Ivy has an issue where sometimes configurations are not read. Reading them manually for: "
+                + mrid + " conf: " + confName)
+            //WORKAROUND :(  there is an issue in ivy where it sometimes leaves out the confs for artifacts
+            // (I think this happens for modules that do not have dependencies)
             val foundArtifact = for {
               file <- Option(artifactReport.getLocalFile()).toSeq
-              cacheIvyDescriptorDir = new File(file.getAbsolutePath().replace("jars" + File.separator + file.getName, ""))
+              cacheIvyDescriptorDir = new File(file.getAbsolutePath().replace("jars" + File.separator +
+                file.getName, ""))
               if cacheIvyDescriptorDir.isDirectory()
-              ivyXmlFile = new File(cacheIvyDescriptorDir, "ivy-" + artifactReport.getArtifact().getModuleRevisionId().getRevision() + ".xml")
+              ivyXmlFile = new File(cacheIvyDescriptorDir, "ivy-" + artifactReport.getArtifact()
+                .getModuleRevisionId().getRevision() + ".xml")
               if ivyXmlFile.isFile()
               artifact <- XML.loadFile(ivyXmlFile) \\ "ivy-module" \ "publications" \ "artifact"
               if (artifact \ "@name").text == artifactReport.getName()
@@ -392,7 +416,8 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
     } catch {
       case e: ArtifactLocationError =>
         if (retry) {
-          logger.debug("Failed with: " + e.getMessage() + ". Deleting: " + e.file.getParentFile.getAbsolutePath() +
+          logger.debug("Failed with: " + e.getMessage() + ". Deleting: " + e.file.getParentFile
+            .getAbsolutePath() +
             " and trying again...")
           FileUtils.deleteDirectory(e.file.getParentFile)
           tryExtract(false)
@@ -453,8 +478,10 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
       .filter(c => excludedConfs(c)).toList)
     val ivyConfigurations = dependencyReport.getConfigurations()
       .filter(c => !excludedConfs(c))
-      .map(c => parentNode.getConfiguration(c)) //careful here. you could think: moduleDescriptor.getConfigurations is the same but it is not (you get bogus configurations back) 
-      .filter(_.getVisibility() == Visibility.PUBLIC) //we cannot get dependencies for private configurations so we just skip them all together
+      //careful here. you could think: moduleDescriptor.getConfigurations is the same but it is not (you get bogus configurations back)
+      .map(c => parentNode.getConfiguration(c))
+      //we cannot get dependencies for private configurations so we just skip them all together
+      .filter(_.getVisibility() == Visibility.PUBLIC)
     val allConfigIds = ivyConfigurations.map { ivyConfiguration =>
       ivyIdAsId(mrid.getModuleId, ivyConfiguration.getName)
     }.toSet
@@ -464,8 +491,10 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
         val thisVariantId = ivyIdAsId(mrid.getModuleId, confName)
 
         val (loaded, notLoaded) = {
-          val children = Option(ivy.resolve(mrid, resolveOptions(confName), changing).getConfigurationReport(confName)).map { configReport =>
-            val childrenWithoutCurrentNode = configReport.getModuleRevisionIds().asScala.tail //avoid depending on yourself
+          val children = Option(ivy.resolve(mrid, resolveOptions(confName), changing).
+            getConfigurationReport(confName)).map { configReport =>
+            //avoid depending on yourself
+            val childrenWithoutCurrentNode = configReport.getModuleRevisionIds.asScala.tail
             childrenWithoutCurrentNode.map {
               case childMrid: ModuleRevisionId =>
                 configReport.getDependency(childMrid)
@@ -478,7 +507,8 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
         }
 
         //printWarnings(mrid, Some(confName), notLoaded, dependencies)
-        val (requirements, excludeRules) = extractRequirementsAndExcludes(thisVariantId, confName, currentIvyNode, loaded)
+        val (requirements, excludeRules) = extractRequirementsAndExcludes(thisVariantId, confName,
+          currentIvyNode, loaded)
 
         val (artifactInfos, newErrors) = extractArtifactInfosAndErrors(mrid, confName)
         errors ++= newErrors //MUTATE!
@@ -490,7 +520,9 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
         }
         //        TODO: this does not work on parent modules
         if (confName == "master" && artifacts.isEmpty) {
-          throw new Exception("Could not find any artifacts in master configuration for: " + mrid + ". Is this a parent module? Failing this import. In  the future we probably want to find a better way of handling/reporting this error.") //TODO: <- ... 
+          throw new Exception("Could not find any artifacts in master configuration for: " + mrid +
+            ". Is this a parent module? Failing this import. In  the future we probably want to find a " +
+            "better way of handling/reporting this error.") //TODO: <- ...
         }
 
         val artifactRefs = artifactInfos.map {
@@ -512,9 +544,9 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
             JavaVersions.getRequirement(major, minor)
         }
 
-        val configurationRequirements = (ivyConfiguration.getExtends().map { targetConf =>
+        val configurationRequirements = ivyConfiguration.getExtends().map { targetConf =>
           Requirement(ivyIdAsId(mrid.getModuleId, targetConf), Set.empty, Set.empty)
-        }.toSet)
+        }.toSet
 
         val extendsIds = ivyConfiguration.getExtends().map { targetConf =>
           ivyIdAsId(mrid.getModuleId, targetConf)
@@ -527,7 +559,9 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
           id = thisVariantId,
           attributes = attributes + Attribute(ConfigurationAttribute, Set(confName)),
           artifacts = artifactRefs,
-          requirements = (requirements ++ configurationRequirements ++ javaRequirements).filter(r => !thisAdeptExcludedConfigurationIds(r.id))) //remove the requirements we are excluding from Adept (could be optional for example)
+          requirements = (requirements ++ configurationRequirements ++ javaRequirements)
+            //remove the requirements we are excluding from Adept (could be optional for example)
+            .filter(r => !thisAdeptExcludedConfigurationIds(r.id)))
 
         val targetVersionInfo = extractTargetVersionInfo(confName, loaded)
         IvyImportResult(
@@ -550,13 +584,14 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
       val moduleDescriptor = parentNode.getDescriptor()
       val (info, resourceFile, resourceOriginalFile) = if (moduleDescriptor != null) {
         val other = {
-          ivy.getSettings().getResolvers().asScala.foldLeft(Map.empty[String, List[String]]) { (current, resolver) =>
+          ivy.getSettings().getResolvers.asScala.foldLeft(Map.empty[String, List[String]]) {
+            (current, resolver) =>
             resolver match {
               case resolver: URLResolver =>
                 val formerIvy = current.getOrElse("ivy-patterns", List.empty[String])
                 val formerArtifact = current.getOrElse("artifact-patterns", List.empty[String])
-                val currentIvy = resolver.getIvyPatterns().asScala.toList.map { case p: String => p }
-                val currentArtifact = resolver.getArtifactPatterns().asScala.toList.map { case p: String => p }
+                val currentIvy = resolver.getIvyPatterns.asScala.toList.map { case p: String => p }
+                val currentArtifact = resolver.getArtifactPatterns.asScala.toList.map { case p: String => p }
                 current +
                   ("ivy-patterns" -> (formerIvy ++ currentIvy).distinct) +
                   ("artifact-patterns" -> (formerArtifact ++ currentArtifact).distinct)
@@ -572,7 +607,8 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
               case LocalDescriptorResourceParser(filename) =>
                 val resourceFile = new File(filename)
                 val r1 = if (resourceFile.isFile()) Some(resourceFile) else None
-                val resourceOriginalFile = new File(resourceFile.getParentFile, resourceFile.getName + ".original")
+                val resourceOriginalFile = new File(resourceFile.getParentFile, resourceFile.getName +
+                  ".original")
                 val (r2, vcs) = if (resourceOriginalFile.isFile) {
                   try {
                     val xmlFile = XML.loadFile(resourceOriginalFile)
@@ -595,10 +631,11 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
             None -> (None, None)
           }
         (Some(InfoMetadata(
-          description = Option(moduleDescriptor.getDescription()),
+          description = Option(moduleDescriptor.getDescription),
           homePage = Option(moduleDescriptor.getHomePage()),
-          publicationDate = Option(moduleDescriptor.getPublicationDate()),
-          licenses = Option(moduleDescriptor.getLicenses).toList.flatMap(_.toList.map(l => LicenseInfo(name = Some(l.getName()), url = Some(l.getUrl())))),
+          publicationDate = Option(moduleDescriptor.getPublicationDate),
+          licenses = Option(moduleDescriptor.getLicenses).toList.flatMap(_.toList.map(l => LicenseInfo(
+            name = Some(l.getName()), url = Some(l.getUrl())))),
           vcs = vcsInfo,
           other = other)), resourceFile, resourceOriginalFile)
       } else {
@@ -628,7 +665,8 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
     }
   }
 
-  private def flattenConfigDependencyTree(tree: Map[String, Map[ModuleRevisionId, Set[IvyNode]]]): Map[ModuleRevisionId, Set[IvyNode]] = {
+  private def flattenConfigDependencyTree(tree: Map[String, Map[ModuleRevisionId, Set[IvyNode]]]):
+  Map[ModuleRevisionId, Set[IvyNode]] = {
     var newTree = Map.empty[ModuleRevisionId, Set[IvyNode]]
     for {
       (_, elems) <- tree
@@ -640,7 +678,9 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
     newTree
   }
 
-  private def createConfigDependencyTree(module: ModuleDescriptor, configNames: Set[String], onlyPublic: Boolean = true)(resolveReport: String => ResolveReport) = {
+  private def createConfigDependencyTree(module: ModuleDescriptor, configNames: Set[String],
+                                         onlyPublic: Boolean = true)
+                                        (resolveReport: String => ResolveReport) = {
     val mrid = module.getModuleRevisionId
     val confNames = module.getConfigurationsNames()
     logger.debug("Excluding confs: " + confNames.filter(excludedConfs.contains(_)).toList)
@@ -666,11 +706,12 @@ class IvyAdeptConverter(ivy: Ivy, changing: Boolean = true, excludedConfs: Set[S
             if (mrid != currentMrid) addDependency(mrid, report.getDependency(currentMrid))
         }
 
-        val currentCallers = report.getModuleRevisionIds().asScala.foreach {
+        val currentCallers = report.getModuleRevisionIds.asScala.foreach {
           case currentMrid: ModuleRevisionId =>
             val ivyNode = report.getDependency(currentMrid)
             ivyNode.getAllCallers.map { caller =>
-              if (caller.getModuleRevisionId != ivyNode.getId) addDependency(caller.getModuleRevisionId, ivyNode)
+              if (caller.getModuleRevisionId != ivyNode.getId) addDependency(caller.getModuleRevisionId,
+                ivyNode)
             }
             dependencies
         }
