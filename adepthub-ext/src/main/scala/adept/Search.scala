@@ -16,7 +16,6 @@ import adept.services.JsonService
 class AdeptHubRecoverableException(msg: String) extends Exception(msg)
 
 private[adept] object Search {
-
   def mergeSearchResults(imports: Set[ImportSearchResult], offline: Set[GitSearchResult], online:
   Set[GitSearchResult], alwaysIncludeImports: Boolean): Set[SearchResult] = {
     val offlineRepoCommit = offline.map { result =>
@@ -37,7 +36,6 @@ private[adept] object Search {
     }
   }
 
-  
   def onlineSearch(url: String)(term: String, constraints: Set[Constraint], executionContext:
   ExecutionContext):
   Future[Set[GitSearchResult]] = {
