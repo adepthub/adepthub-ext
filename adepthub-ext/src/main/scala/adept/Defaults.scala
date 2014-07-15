@@ -13,5 +13,4 @@ object Defaults {
   def ivy = IvyUtils.load(ivyLogger = IvyUtils.warnIvyLogger)
 
   val progress = new TextProgressMonitor
-
 }

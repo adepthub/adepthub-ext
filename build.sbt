@@ -6,7 +6,7 @@ scalacOptions += "-deprecation"
 
 val jvmTarget = "1.6"
 
-incOptions := incOptions.value.withNameHashing(true)
+incOptions := incOptions.value.withNameHashing(nameHashing = true)
 
 lazy val adeptVersion = "0.9.2.6"
 
@@ -19,7 +19,8 @@ lazy val adepthubExt = project.in(file("adepthub-ext")).settings(
   version := adeptVersion,
   organization := adepthubOrg,
   scalacOptions += "-target:jvm-"+jvmTarget,
-  resolvers += Resolver.url("Typesafe Ivy releases", url("https://repo.typesafe.com/typesafe/releases/"))(Resolver.ivyStylePatterns),
+  resolvers += Resolver.url("Typesafe Ivy releases", url("https://repo.typesafe.com/typesafe/releases/"))(
+    Resolver.ivyStylePatterns),
   libraryDependencies ++= Seq(
     "org.apache.ivy" % "ivy" % "2.3.0",
     "org.apache.httpcomponents" % "httpclient" % "4.3.3",

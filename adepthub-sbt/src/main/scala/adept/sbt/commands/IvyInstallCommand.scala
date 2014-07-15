@@ -25,15 +25,16 @@ object IvyInstallCommand {
   def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String],
             ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub) = {
     (token("ivy-install") ~> (Space ~> NotSpaceClass.+).+).map { args =>
-      new IvyInstallCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion, confs,
-        ivyConfigurations, lockfileGetter, adepthub)
+      new IvyInstallCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion,
+        confs, ivyConfigurations, lockfileGetter, adepthub)
     }
 
   }
 }
 
-class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion:
-Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGetter: String => File, adepthub: AdeptHub)
+class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int,
+                        minorJavaVersion: Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration],
+                        lockfileGetter: String => File, adepthub: AdeptHub)
   extends AdeptCommand {
   def execute(state: State): State = {
     val logger = state.globalLogging.full
@@ -58,7 +59,10 @@ Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGett
       case ConfigIvyRevisionRegex(org, name, revision, conf) => Right((conf, (org, name, revision)))
       case ConfigIvyRevisionRegexScalaBinary(org, name, revision, conf) => Right((conf, (org, name + "_" +
         scalaBinaryVersion, revision)))
-      case _ => Left("""Need something matching: "<org>" % "<name>" % "<revision>" or "<org>" % "<name>" % "<revision> % "<conf>"" or "<org>" %% "<name>" % "<revision>", but got: """ + expression)
+      case _ => Left(
+        s"""Need something matching: "<org>" % "<name>" % "<revision>" or "<org>" % "<name>" %
+          | "<revision> % "<conf>"" or "<org>" %% "<name>" % "<revision>", but got: $expression"""
+          .stripMargin)
     }
     maybeMatch match {
       case Left(msg) =>
@@ -119,8 +123,8 @@ Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGett
               val lockfile = Lockfile.read(lockfileFile)
               val newRequirements = AdeptHub.variantsAsConfiguredRequirements(variants, baseIdString, confs)
               val requirements = AdeptHub.newLockfileRequirements(newRequirements, lockfile)
-              val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(importedSearchResults),
-                lockfile)
+              val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(
+                importedSearchResults), lockfile)
               val overrides = inputContext
 
               //get lockfile locations:
@@ -137,13 +141,15 @@ Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration], lockfileGett
                 overrides = overrides,
                 providedVariants = javaVariants) match {
                   case Right((resolveResult, lockfile)) =>
-                    if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs())
-                      throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
+                    if (!lockfileFile.getParentFile.isDirectory && !lockfileFile.getParentFile.mkdirs())
+                      throw new Exception("Could not create directory for lockfile: " +
+                        lockfileFile.getAbsolutePath)
                     adepthub.writeLockfile(lockfile, lockfileFile)
                     val msg = s"Installed $org#$name!$revision"
                     Right((lockfile, targetConf, lockfileFile, msg))
                   case Left(error) =>
-                    Left(targetConf -> AdeptHub.renderErrorReport(error, requirements, inputContext, overrides))
+                    Left(targetConf -> AdeptHub.renderErrorReport(error, requirements, inputContext,
+                      overrides))
                 }
               result
             }
