@@ -55,7 +55,7 @@ private[adept] object Search {
           val status = response.getStatusLine
           if (status.getStatusCode == 200) {
             val (gitSearchResults, _) = JsonService.parseJsonSet(response.getEntity.getContent,
-              GitSearchResult.jsonConversionMap, GitSearchResult.constructFromJson)
+              GitSearchResult.fromJson)
             gitSearchResults
           } else {
             throw new AdeptHubRecoverableException("AdeptHub returned with: " + status + ":\n" +
