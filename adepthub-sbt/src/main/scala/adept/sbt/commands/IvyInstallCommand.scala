@@ -1,23 +1,19 @@
 package adept.sbt.commands
 
-import sbt.State
 import java.io.File
+
 import adept.AdeptHub
-import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
-import adept.resolution.models._
+import adept.ext.{AttributeDefaults, JavaVersions, VersionRank}
 import adept.ext.models.Module
-import adept.ext.VersionRank
 import adept.ivy.IvyUtils
+import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
 import adept.lockfile.Lockfile
-import adept.sbt.SbtUtils
-import adept.ext.AttributeDefaults
-import scala.util.Failure
-import scala.util.Success
-import adept.sbt.AdeptSbtUtils
-import scala.util.Try
-import adept.sbt.UserInputException
-import adept.ext.JavaVersions
-import adept.models.ImportSearchResult
+import adept.models.{ImportSearchResult, SearchResult}
+import adept.resolution.models._
+import adept.sbt.{AdeptSbtUtils, SbtUtils, UserInputException}
+import sbt.{Configuration, Logger, State}
+
+import scala.util.{Failure, Success, Try}
 
 object IvyInstallCommand {
   import sbt.complete.DefaultParsers._
@@ -76,8 +72,8 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
               val alts = Module.getModules(existing.map { searchResult =>
                 searchResult.variant
               })
-              val msg = "No point in using ivy-install because this module have already been imported. Results:\n" +
-                alts.map {
+              val msg = "No point in using ivy-install because this module have already been imported." +
+                " Results:\n" + alts.map {
                 case ((base, _), variants) =>
                   base + " version: " + variants.flatMap(VersionRank.getVersion).map(_.value).mkString(",")
               }.mkString("\n") + "\n" +
@@ -116,59 +112,8 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
               Failure(UserInputException(errorMsg)), res => Success(res))
             thisIvyConfig <- AdeptSbtUtils.getTargetConf(ivyConfigurations, targetConf)
           } yield {
-            val lockfileFile = lockfileGetter(targetConf)
-            val allIvyTargetConfs = SbtUtils.getAllExtendingConfig(logger, thisIvyConfig, ivyConfigurations)
-
-            val results = allIvyTargetConfs.map { targetIvyConf =>
-              val lockfile = Lockfile.read(lockfileFile)
-              val newRequirements = AdeptHub.variantsAsConfiguredRequirements(variants, baseIdString, confs)
-              val requirements = AdeptHub.newLockfileRequirements(newRequirements, lockfile)
-              val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(
-                importedSearchResults), lockfile)
-              val overrides = inputContext
-
-              //get lockfile locations:
-              adepthub.downloadLockfileLocations(newRequirements, lockfile)
-
-              val javaVariants = JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
-              val sbtRequirements = Set() +
-                JavaVersions.getRequirement(majorJavaVersion, minorJavaVersion) ++
-                ScalaBinaryVersionConverter.getRequirement(scalaBinaryVersion)
-
-              val result = adepthub.resolve(
-                requirements = requirements ++ sbtRequirements,
-                inputContext = inputContext,
-                overrides = overrides,
-                providedVariants = javaVariants) match {
-                  case Right((resolveResult, lockfile)) =>
-                    if (!lockfileFile.getParentFile.isDirectory && !lockfileFile.getParentFile.mkdirs())
-                      throw new Exception("Could not create directory for lockfile: " +
-                        lockfileFile.getAbsolutePath)
-                    adepthub.writeLockfile(lockfile, lockfileFile)
-                    val msg = s"Installed $org#$name!$revision"
-                    Right((lockfile, targetConf, lockfileFile, msg))
-                  case Left(error) =>
-                    Left(targetConf -> AdeptHub.renderErrorReport(error, requirements, inputContext,
-                      overrides))
-                }
-              result
-            }
-            if (results.forall(_.isRight)) {
-              val msgs = results.map {
-                case Right((lockfile, targetConf, file, msg)) =>
-                  adepthub.writeLockfile(lockfile, file)
-                  Success(targetConf -> msg)
-                case something => throw new Exception("Expected a right here but got: " + something + " in " +
-                  results)
-              }
-              Success(msgs.map { case Success((conf, msg)) => conf + ": " + msg }.mkString("\n"))
-            } else {
-              val msgs = results.collect {
-                case Left(msg) => msg
-              }
-              Failure(UserInputException(msgs.map { case (conf, msg) => "For: " + conf + " got:\n" + msg }
-                .mkString("\n")))
-            }
+            writeLockFiles(logger, targetConf, org, name, revision, importedSearchResults, baseIdString,
+              variants, thisIvyConfig)
           }
           result.flatten match {
             case Success(msg) =>
@@ -181,6 +126,65 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
               throw e
           }
         }
+    }
+  }
+
+  private def writeLockFiles(logger: Logger, targetConf: String, org: String, name: String, revision: String,
+                             importedSearchResults: Set[SearchResult], baseIdString: String,
+                             variants: Set[Variant], thisIvyConfig: Configuration):
+  Try[String] with Product with Serializable = {
+    val lockfileFile = lockfileGetter(targetConf)
+    val allIvyTargetConfs = SbtUtils.getAllExtendingConfig(logger, thisIvyConfig, ivyConfigurations)
+
+    val results = allIvyTargetConfs.map { targetIvyConf =>
+      val lockfile = Lockfile.read(lockfileFile)
+      val newRequirements = AdeptHub.variantsAsConfiguredRequirements(variants, baseIdString, confs)
+      val requirements = AdeptHub.newLockfileRequirements(newRequirements, lockfile)
+      val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(
+        importedSearchResults), lockfile)
+      val overrides = inputContext
+
+      //get lockfile locations:
+      adepthub.downloadLockfileLocations(newRequirements, lockfile)
+
+      val javaVariants = JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
+      val sbtRequirements = Set() +
+        JavaVersions.getRequirement(majorJavaVersion, minorJavaVersion) ++
+        ScalaBinaryVersionConverter.getRequirement(scalaBinaryVersion)
+
+      val result = adepthub.resolve(
+        requirements = requirements ++ sbtRequirements,
+        inputContext = inputContext,
+        overrides = overrides,
+        providedVariants = javaVariants) match {
+        case Right((resolveResult, lockfile)) =>
+          if (!lockfileFile.getParentFile.isDirectory && !lockfileFile.getParentFile.mkdirs())
+            throw new Exception("Could not create directory for lockfile: " +
+              lockfileFile.getAbsolutePath)
+          adepthub.writeLockfile(lockfile, lockfileFile)
+          val msg = s"Installed $org#$name!$revision"
+          Right((lockfile, targetConf, lockfileFile, msg))
+        case Left(error) =>
+          Left(targetConf -> AdeptHub.renderErrorReport(error, requirements, inputContext,
+            overrides))
+      }
+      result
+    }
+    if (results.forall(_.isRight)) {
+      val msgs = results.map {
+        case Right((lockfile, targetConf, file, msg)) =>
+          adepthub.writeLockfile(lockfile, file)
+          Success(targetConf -> msg)
+        case something => throw new Exception("Expected a right here but got: " + something + " in " +
+          results)
+      }
+      Success(msgs.map { case Success((conf, msg)) => conf + ": " + msg}.mkString("\n"))
+    } else {
+      val msgs = results.collect {
+        case Left(msg) => msg
+      }
+      Failure(UserInputException(msgs.map { case (conf, msg) => "For: " + conf + " got:\n" + msg}
+        .mkString("\n")))
     }
   }
 }
