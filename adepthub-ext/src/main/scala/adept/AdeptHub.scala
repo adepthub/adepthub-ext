@@ -58,7 +58,7 @@ object AdeptHub {
       }.mkString("\n")
       Left(msg)
     } else {
-      val ((baseIdString, moduleHash), variants) = modules.head
+      val ((baseIdString, _), variants) = modules.head
       Right((baseIdString, variants))
     }
   }
@@ -97,6 +97,9 @@ object AdeptHub {
   }
 
   def newLockfileContext(context: Set[ContextValue], lockfile: Lockfile) = {
+    if (lockfile.getContext == null) {
+      throw new IllegalArgumentException("lockfile.context is null")
+    }
     val newContextIds = context.map(_.id)
     context ++ LockfileConverters.context(lockfile).filter { c =>
       //remove old context values which are overwritten
