@@ -1,21 +1,17 @@
 package adept
 
-import java.io.File
-import java.util.zip.ZipEntry
-import java.io.FileOutputStream
+import java.io.{File, FileInputStream, FileOutputStream}
+import java.util.zip.{ZipEntry, ZipOutputStream}
+
+import adept.lockfile.{Lockfile, LockfileContext}
 import adept.logging.Logging
-import java.util.zip.ZipOutputStream
-import java.io.FileInputStream
-import org.apache.http.client.methods.RequestBuilder
-import org.apache.http.entity.mime.MultipartEntityBuilder
-import org.apache.http.entity.mime.HttpMultipartMode
-import org.apache.http.impl.client.HttpClientBuilder
-import adepthub.models.ContributionResult
 import adept.repository.GitRepository
-import org.eclipse.jgit.lib.ProgressMonitor
-import adept.lockfile.LockfileContext
-import adept.lockfile.Lockfile
 import adept.services.JsonService
+import adepthub.models.ContributionResult
+import org.apache.http.client.methods.RequestBuilder
+import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntityBuilder}
+import org.apache.http.impl.client.HttpClientBuilder
+import org.eclipse.jgit.lib.ProgressMonitor
 
 object Contribute extends Logging {
 
@@ -23,7 +19,7 @@ object Contribute extends Logging {
     val children = new Iterable[File] {
       def iterator = if (file.isDirectory) file.listFiles.iterator else Iterator.empty
     }
-    Seq(file) ++: children.flatMap(walkTree(_))
+    Seq(file) ++: children.flatMap(walkTree)
   }
   def getZipEntry(file: File, baseDir: File) = {
     new ZipEntry(file.getAbsolutePath.replace(baseDir.getAbsolutePath, ""))
@@ -57,12 +53,11 @@ object Contribute extends Logging {
       zipOutput.close()
     }
   }
-  
-  
+
   def updateWithContributions(lockfile: Lockfile, contributions: Set[ContributionResult]) = {
-    import collection.JavaConverters._
+    import scala.collection.JavaConverters._
     val contributionByRepos = contributions.groupBy(_.repository)
-    val newContext = lockfile.getContext().asScala.map { value =>
+    val newContext = lockfile.getContext.asScala.map { value =>
       contributionByRepos.get(adept.repository.models.RepositoryName(value.repository.value))
       match {
         case Some(matchingContribs) =>

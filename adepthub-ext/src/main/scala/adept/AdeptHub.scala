@@ -162,7 +162,7 @@ object AdeptHub {
 class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheManager, val url:
                String = Defaults.url, val passphrase: Option[String] = None, val onlyOnline: Boolean = false,
                val progress: ProgressMonitor = Defaults.progress) extends Adept(baseDir, cacheManager,
-  passphrase, progress) with Logging {
+  passphrase) with Logging {
   //TODO: make logging configurable
   def defaultIvy = Defaults.ivy
 
