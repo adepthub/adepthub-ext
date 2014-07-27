@@ -96,9 +96,8 @@ object Contribute extends Logging {
       try {
         val status = response.getStatusLine
         if (status.getStatusCode == 200) {
-          val (results, _) = JsonService.parseJson(response.getEntity.getContent, Map(
-            ("results", JsonService.parseSeq(_, ContributionResult.fromJson))
-          ), valueMap => valueMap.getSeq[ContributionResult]("results"))
+          val (results, _) = JsonService.parseJsonSet(response.getEntity.getContent,
+            ContributionResult.fromJson)
           results.foreach { result =>
             val repository = new GitRepository(baseDir, result.repository)
             if (!repository.exists) {
