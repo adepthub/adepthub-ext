@@ -24,21 +24,23 @@ object Contribute extends Logging {
   def getZipEntry(file: File, baseDir: File) = {
     new ZipEntry(file.getAbsolutePath.replace(baseDir.getAbsolutePath, ""))
   }
-  def compress(importsDir: File) = {
+  def compress(importsDir: File): File = {
     val zipFile = File.createTempFile("adept-", "-import.zip")
-    logger.debug("Compressing to: " + zipFile.getAbsolutePath)
+    logger.debug(s"Compressing $importsDir to: ${zipFile.getAbsolutePath}")
+    var totalBytesRead = 0
     val output = new FileOutputStream(zipFile)
     val zipOutput = new ZipOutputStream(output)
-    val BufferSize = 4096 //random number
-    val bytes = new Array[Byte](BufferSize)
     try {
+      val BufferSize = 4096 //random number
       walkTree(importsDir).filter(_.isFile).foreach { file =>
         val zipEntry = getZipEntry(file, importsDir)
         val is = new FileInputStream(file)
         try {
+          val bytes = new Array[Byte](BufferSize)
           var bytesRead = is.read(bytes)
           zipOutput.putNextEntry(zipEntry)
           while (bytesRead != -1) {
+            totalBytesRead += bytesRead
             zipOutput.write(bytes, 0, bytesRead)
             bytesRead = is.read(bytes)
           }
@@ -46,6 +48,11 @@ object Contribute extends Logging {
           is.close()
         }
       }
+
+      if (totalBytesRead <= 0) {
+        throw new Exception(s"There were no files to compress in imports directory ${importsDir}")
+      }
+
       zipFile
     } finally {
       zipOutput.finish()
@@ -79,7 +86,7 @@ object Contribute extends Logging {
   }
 
   def sendFile(url: String, baseDir: File, passphrase: Option[String], progress:
-  ProgressMonitor)( file: File) = {
+  ProgressMonitor)(file: File) = {
     ///TODO: future me, I present my sincere excuses for this code: http client sucks!
     val requestBuilder = RequestBuilder.post()
     requestBuilder.setUri(url + "/api/ivy/import")

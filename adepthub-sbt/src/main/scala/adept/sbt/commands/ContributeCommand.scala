@@ -3,6 +3,7 @@ package adept.sbt.commands
 import adept.AdeptHub
 import adept.lockfile.Lockfile
 import adept.sbt.{AdeptKeys, SbtUtils}
+import org.apache.commons.io.FileUtils
 import sbt.State
 
 object ContributeCommand {
@@ -12,7 +13,6 @@ object ContributeCommand {
     token("contribute-imports").map { _ =>
       new ContributeCommand(adepthub)
     }
-
   }
 }
 
@@ -24,8 +24,8 @@ class ContributeCommand(adepthub: AdeptHub) extends AdeptCommand {
       val lockfile = Lockfile.read(lockfileFile)
       adepthub.writeLockfile(adept.Contribute.updateWithContributions(lockfile, results), lockfileFile)
     }
-    scala.reflect.io.Directory(adepthub.importsDir).deleteRecursively()
-    
+    FileUtils.deleteDirectory(adepthub.importsDir)
+
     state
   }
 }

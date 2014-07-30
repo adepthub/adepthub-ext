@@ -1,16 +1,16 @@
 package adept.sbt
 
-import sbt._
-import sbt.Keys._
-import adept.lockfile.{ Lockfile, LockfileConverters }
-import adept.sbt.commands._
 import adept.AdeptHub
-import net.sf.ehcache.CacheManager
 import adept.ext.JavaVersions
+import adept.lockfile.{Lockfile, LockfileConverters}
+import adept.sbt.commands._
+import net.sf.ehcache.CacheManager
+import sbt.Keys._
+import sbt._
 
 object AdeptPlugin extends Plugin {
 
-  import AdeptKeys._
+  import adept.sbt.AdeptKeys._
 
   def adeptSettings = defaultConfigDependentSettings(Test) ++ defaultConfigDependentSettings(Compile) ++
     defaultConfigDependentSettings(Runtime) ++ Seq(
@@ -36,11 +36,9 @@ object AdeptPlugin extends Plugin {
     },
     sbt.Keys.commands += {
       import sbt.complete.DefaultParsers._
-      import sbt.complete._
       val confs = Set("compile", "master") //TODO: <-- fix!
       val baseDir = adeptDirectory.value
       val importsDir = adeptImportsDirectory.value
-      val url = adepthubUrl.value
       val scalaBinaryVersion = sbt.Keys.scalaBinaryVersion.value
 
       val cacheManager = CacheManager.create()
@@ -90,7 +88,7 @@ object AdeptPlugin extends Plugin {
       val lockfile = (adeptLockfileContent in conf).value
       val downloadTimeoutMinutes = adeptTimeout.value
       val baseDir = adeptDirectory.value
-      import collection.JavaConverters._
+      import scala.collection.JavaConverters._
       lockfile.download(baseDir, downloadTimeoutMinutes, java.util.concurrent.TimeUnit.MINUTES, 5,
         AdeptDefaults.javaLogger(logger), AdeptDefaults.javaProgress).asScala.map { result =>
         if (result.isSuccess)

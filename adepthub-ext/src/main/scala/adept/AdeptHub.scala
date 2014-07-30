@@ -383,5 +383,4 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
   def contribute() = {
     Contribute.contribute(url, baseDir, passphrase, progress, importsDir)
   }
-
 }
