@@ -3,6 +3,7 @@ package adept
 import java.io.{File, FileInputStream, FileOutputStream}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
+import adept.exceptions.JsonParseException
 import adept.lockfile.{Lockfile, LockfileContext}
 import adept.logging.Logging
 import adept.repository.GitRepository
@@ -104,8 +105,14 @@ object Contribute extends Logging {
       try {
         val status = response.getStatusLine
         if (status.getStatusCode == 200) {
-          val (results, _) = JsonService.parseJsonSet(response.getEntity.getContent,
-            ContributionResult.fromJson)
+          val results = try {
+            val (results, _) = JsonService.parseJsonSet(response.getEntity.getContent,
+              ContributionResult.fromJson)
+            results
+          } catch {
+            case e: JsonParseException =>
+              throw new Exception(s"Can't parse JSON from server: ${e.message}\nJSON: ${e.json}")
+          }
           results.foreach { result =>
             val repository = new GitRepository(baseDir, result.repository)
             if (!repository.exists) {
