@@ -86,13 +86,13 @@ object Contribute extends Logging {
   }
 
   def sendFile(url: String, baseDir: File, passphrase: Option[String], progress:
-  ProgressMonitor)(file: File) = {
+  ProgressMonitor)(archive: File) = {
     ///TODO: future me, I present my sincere excuses for this code: http client sucks!
     val requestBuilder = RequestBuilder.post()
     requestBuilder.setUri(url + "/api/ivy/import")
     val multipartBuilder = MultipartEntityBuilder.create()
     multipartBuilder.setMode(HttpMultipartMode.STRICT)
-    multipartBuilder.addBinaryBody("contribution-zipped-file", file)
+    multipartBuilder.addBinaryBody("contribution-zipped-file", archive)
     val entity = multipartBuilder.build()
     requestBuilder.setEntity(entity)
     val httpClientBuilder = HttpClientBuilder.create()

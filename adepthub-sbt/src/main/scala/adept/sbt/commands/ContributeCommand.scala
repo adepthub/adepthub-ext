@@ -18,8 +18,10 @@ object ContributeCommand {
 
 class ContributeCommand(adepthub: AdeptHub) extends AdeptCommand {
   def execute(state: State): State = {
+    // Find the current project's lockfiles
     val lockfiles = SbtUtils.evaluateTask(AdeptKeys.adeptLockfiles, SbtUtils.currentProject(state), state)
     val results = adepthub.contribute()
+    // Write contributions to lockfiles
     lockfiles.foreach { case (conf, lockfileFile) =>
       val lockfile = Lockfile.read(lockfileFile)
       adepthub.writeLockfile(adept.Contribute.updateWithContributions(lockfile, results), lockfileFile)
