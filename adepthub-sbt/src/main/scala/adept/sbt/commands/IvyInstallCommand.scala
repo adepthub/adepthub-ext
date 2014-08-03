@@ -16,6 +16,7 @@ import sbt.{Configuration, Logger, State}
 import scala.util.{Failure, Success, Try}
 
 object IvyInstallCommand {
+
   import sbt.complete.DefaultParsers._
 
   def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, confs: Set[String],
@@ -24,7 +25,6 @@ object IvyInstallCommand {
       new IvyInstallCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion,
         confs, ivyConfigurations, lockfileGetter, adepthub)
     }
-
   }
 }
 
@@ -33,6 +33,17 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
                         lockfileGetter: String => File, adepthub: AdeptHub)
   extends AdeptCommand {
   def execute(state: State): State = {
+    try {
+      installIvyPackage(state)
+      state
+    }
+    catch {
+      case u: UserInputException => state.fail
+    }
+  }
+
+  // TODO: Return the imported packages (including dependencies)
+  def installIvyPackage(state: State): Unit = {
     val logger = state.globalLogging.full
     val ivySbt = SbtUtils.evaluateTask(sbt.Keys.ivySbt, SbtUtils.currentProject(state), state)
 
@@ -43,7 +54,8 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
     val IvyRevisionRegex = """^\s*\"(.*?)\"\s*%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*$""".r
     val ConfigIvyRevisionRegex = """^\s*\"(.*?)\"\s*%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*%\s*"(.*?)"\s*$""".r
     val IvyRevisionRegexScalaBinary = """^\s*\"(.*?)\"\s*%%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*$""".r
-    val ConfigIvyRevisionRegexScalaBinary = """^\s*\"(.*?)\"\s*%%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*%\s*"(.*?)"\s*$""".r
+    val ConfigIvyRevisionRegexScalaBinary =
+      """^\s*\"(.*?)\"\s*%%\s*\"(.*?)\"\s*%\s*"(.*?)"\s*%\s*"(.*?)"\s*$""".r
 
     val defaultConf = "compile"
 
@@ -65,6 +77,7 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
         logger.error(msg)
         state.fail
       case Right((targetConf, (org, name, revision))) =>
+        logger.info(s"Importing Ivy package $org $name $revision...")
         ivySbt.withIvy(IvyUtils.errorIvyLogger) { ivy =>
           val maybeIvyAccepted = adepthub.ivyImport(org, name, revision, confs, scalaBinaryVersion, ivy = ivy,
             forceImport = isForced) match {
@@ -72,38 +85,36 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
               val alts = Module.getModules(existing.map { searchResult =>
                 searchResult.variant
               })
-              val msg = "No point in using ivy-install because this module have already been imported." +
+              val msg = "No point in using ivy-install because this module has already been imported." +
                 " Results:\n" + alts.map {
                 case ((base, _), variants) =>
                   base + " version: " + variants.flatMap(VersionRank.getVersion).map(_.value).mkString(",")
               }.mkString("\n") + "\n" +
                 "Try:\n" + alts.map {
-                  case ((base, _), variants) =>
-                    val versions = variants.flatMap(VersionRank.getVersion).map(_.value)
-                    val versionString = if (versions.size == 1) {
-                      " -v " + versions.head
-                    } else {
-                      ""
-                    }
-                    "ah install " + base + "/" + versionString
-                }.mkString("\n")
+                case ((base, _), variants) =>
+                  val versions = variants.flatMap(VersionRank.getVersion).map(_.value)
+                  val versionString = if (versions.size == 1) {
+                    " -v " + versions.head
+                  } else {
+                    ""
+                  }
+                  "ah install " + base + "/" + versionString
+              }.mkString("\n")
               Failure(UserInputException(msg))
+            case Right(searchResults) => Success(searchResults)
             case Left(errors) =>
               val msg = "Ivy could not resolve:\n" + errors.mkString("\n")
               Failure(UserInputException(msg))
-            case Right(searchResults) => Success(searchResults)
           }
 
           val result: Try[Try[String]] = for {
-            //handle user errors:
+          //handle user errors:
             _ <- maybeIvyAccepted
             term = ScalaBinaryVersionConverter.extractId(Id(org + "/" + name)).value + "/"
             importedSearchResults = {
               val constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision)))
-              val allSearchResults = adepthub.search(term, constraints,
-                allowLocalOnly = false,
-                alwaysIncludeImports = true)
-              allSearchResults.filter {
+              adepthub.search(term, constraints, allowLocalOnly = false, alwaysIncludeImports = true)
+                .filter {
                 case searchResult: ImportSearchResult => true
                 case _ => false
               }
@@ -118,10 +129,9 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
           result.flatten match {
             case Success(msg) =>
               logger.info(msg)
-              state
             case Failure(u: UserInputException) =>
               logger.error(u.msg)
-              state.fail
+              throw u
             case Failure(e) =>
               throw e
           }
@@ -140,8 +150,8 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
       val lockfile = Lockfile.read(lockfileFile)
       val newRequirements = AdeptHub.variantsAsConfiguredRequirements(variants, baseIdString, confs)
       val requirements = AdeptHub.newLockfileRequirements(newRequirements, lockfile)
-      val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(
-        importedSearchResults), lockfile)
+      val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(importedSearchResults),
+        lockfile)
       val overrides = inputContext
 
       //get lockfile locations:

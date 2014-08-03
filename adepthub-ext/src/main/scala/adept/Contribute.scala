@@ -21,17 +21,19 @@ object Contribute extends Logging {
     }
     Seq(file) ++: children.flatMap(walkTree)
   }
+
   def getZipEntry(file: File, baseDir: File) = {
     new ZipEntry(file.getAbsolutePath.replace(baseDir.getAbsolutePath, ""))
   }
+
   def compress(importsDir: File): File = {
     val zipFile = File.createTempFile("adept-", "-import.zip")
-    logger.debug(s"Compressing $importsDir to: ${zipFile.getAbsolutePath}")
-    var totalBytesRead = 0
+    logger.debug(s"Compressing packages in $importsDir to: ${zipFile.getAbsolutePath}")
+    val BufferSize = 4096 //random number
     val output = new FileOutputStream(zipFile)
     val zipOutput = new ZipOutputStream(output)
     try {
-      val BufferSize = 4096 //random number
+      var totalBytesRead = 0
       walkTree(importsDir).filter(_.isFile).foreach { file =>
         val zipEntry = getZipEntry(file, importsDir)
         val is = new FileInputStream(file)
@@ -49,8 +51,8 @@ object Contribute extends Logging {
         }
       }
 
-      if (totalBytesRead <= 0) {
-        throw new Exception(s"There were no files to compress in imports directory ${importsDir}")
+      if (totalBytesRead == 0) {
+        throw new Exception(s"There were no files to compress in imports dir ${importsDir.getAbsolutePath}")
       }
 
       zipFile
@@ -75,9 +77,8 @@ object Contribute extends Logging {
           }
           val matchingContrib = matchingContribs.head
           new LockfileContext(value.info, value.id, value.repository,
-            matchingContrib.locations.map {
-            new adept.lockfile.RepositoryLocation(_) }.toSet.asJava, new adept.lockfile.Commit(
-            matchingContrib.commit.value), value.hash)
+            matchingContrib.locations.map { new adept.lockfile.RepositoryLocation(_)}.toSet.asJava,
+            new adept.lockfile.Commit(matchingContrib.commit.value), value.hash)
         case None =>
           value
       }
@@ -136,6 +137,15 @@ object Contribute extends Logging {
     }
   }
 
+  /** Contribute packages to AdeptHub.
+    *
+    * @param url AdeptHub URL
+    * @param baseDir Project base dir.
+    * @param passphrase Account passphrase.
+    * @param progress Progress monitor.
+    * @param importsDir Path to directory where packages may be found.
+    * @return Set of contribution results.
+    */
   def contribute(url: String, baseDir: File, passphrase: Option[String], progress: ProgressMonitor,
                  importsDir: File): Set[ContributionResult] = {
     sendFile(url, baseDir, passphrase, progress)(compress(importsDir)).toSet

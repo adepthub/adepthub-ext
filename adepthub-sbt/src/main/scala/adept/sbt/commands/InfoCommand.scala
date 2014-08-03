@@ -1,36 +1,24 @@
 package adept.sbt.commands
 
-import sbt.State
 import java.io.File
+
 import adept.AdeptHub
-import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
-import adept.resolution.models._
-import adepthub.models._
-import adept.repository.metadata._
-import adept.repository.models._
-import adept.ext.models.Module
-import adept.ext.VersionRank
-import adept.ivy.IvyUtils
-import adept.lockfile.Lockfile
-import adept.lockfile.LockfileConverters
-import adept.sbt.AdeptDefaults
-import adept.sbt.SbtUtils
-import adept.ivy.IvyConstants
-import adept.ext.AttributeDefaults
-import adept.sbt.AdeptKeys
+import adept.lockfile.{Lockfile, LockfileConverters}
+import adept.sbt.{AdeptKeys, SbtUtils}
+import sbt.State
 
 object InfoCommand {
   import sbt.complete.DefaultParsers._
-  import sbt.complete._
 
   def using(lockfileGetter: String => File, adepthub: AdeptHub) = {
-    ((token("info") ~> (Space ~> NotSpaceClass.+).*).map { args =>
+    (token("info") ~> (Space ~> NotSpaceClass.+).*).map { args =>
       new InfoCommand(args.map(_.mkString), lockfileGetter, adepthub)
-    })
+    }
   }
 }
 
-class InfoCommand(args: Seq[String], lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
+class InfoCommand(args: Seq[String], lockfileGetter: String => File, adepthub: AdeptHub)
+  extends AdeptCommand {
   def execute(state: State): State = {
     val logger = state.globalLogging.full
     val lockfiles = SbtUtils.evaluateTask(AdeptKeys.adeptLockfiles, SbtUtils.currentProject(state), state)

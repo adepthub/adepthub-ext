@@ -224,15 +224,11 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
 
   def ivyImport(org: String, name: String, revision: String, configurations: Set[String],
                 scalaBinaryVersion: String, ivy: _root_.org.apache.ivy.Ivy = defaultIvy,
-                useScalaConvert: Boolean = true, forceImport:
-  Boolean = false): Either[Set[IvyImportError], Set[SearchResult]] = {
+                useScalaConvert: Boolean = true, forceImport: Boolean = false):
+  Either[Set[IvyImportError], Set[SearchResult]] = {
     val existing = Ivy.getExisting(this, scalaBinaryVersion)(org, name, revision, configurations)
-    val doImport = forceImport || revision.endsWith("SNAPSHOT") || {
-      //either force or snapshot, then always import
-      existing.isEmpty
-    }
-
-    if (doImport) {
+    // Always import if force or snapshot
+    if (existing.isEmpty || forceImport || revision.endsWith("SNAPSHOT")) {
       Ivy.ivyImport(this)(org, name, revision, ivy, useScalaConvert, forceImport) match {
         case Right(_) =>
           Right(Set.empty[SearchResult])
