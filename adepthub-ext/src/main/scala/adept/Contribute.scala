@@ -113,19 +113,22 @@ object Contribute extends Logging {
             case e: JsonParseException =>
               throw new Exception(s"Can't parse JSON from server: ${e.message}\nJSON: ${e.json}")
           }
+          logger.info(s"Received ${results.size} result(s) from AdeptHub")
           results.foreach { result =>
             val repository = new GitRepository(baseDir, result.repository)
             if (!repository.exists) {
               if (result.locations.size > 1) logger.warn("Ignoring locations: " +
                 result.locations.tail)
               val uri = result.locations.head
+              logger.debug(s"Cloning repository ${repository.name} from AdeptHub ($uri)...")
               repository.clone(uri, passphrase, progress)
             } else if (repository.exists) {
               result.locations.foreach { location =>
+                logger.debug(s"Setting repository (${repository.name}) default remote $location")
                 repository.addRemoteUri(GitRepository.DefaultRemote, location)
               }
-              repository.pull(GitRepository.DefaultRemote, GitRepository.DefaultBranchName,
-                passphrase)
+              logger.debug("Synchronizing repository with remote")
+              repository.pull(GitRepository.DefaultRemote, GitRepository.DefaultBranchName, passphrase)
             } else {
               logger.warn("Ignoring " + result)
             }
