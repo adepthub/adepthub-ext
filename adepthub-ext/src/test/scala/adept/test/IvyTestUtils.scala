@@ -72,7 +72,8 @@ object IvyTestUtils {
           val verificationResult = benchmark(Verified, resolvedResult && ivyModule) {
             ivyConverter.verifyConversion(confName, ivyModule, resolvedResult)
           }
-          assert(verificationResult.isRight, "Verification of " + confName + " failed:\n" + verificationResult)
+          assert(verificationResult.isRight, "Verification of " + confName + " failed:\n" +
+            verificationResult)
         case _ =>
           assert(false, "Expected to be able to resolve Adept for " + confName + ". Got result:\n" + result)
       }

@@ -1,7 +1,5 @@
 package adepthub.models
 
-import java.io.InputStream
-
 import adept.resolution.models._
 import adept.services.JsonService
 

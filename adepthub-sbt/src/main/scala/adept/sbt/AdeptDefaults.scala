@@ -2,7 +2,6 @@ package adept.sbt
 
 import adept.logging.JavaLogger
 import org.eclipse.jgit.lib.TextProgressMonitor
-import adept.logging.Logging
 
 object AdeptDefaults {
 
