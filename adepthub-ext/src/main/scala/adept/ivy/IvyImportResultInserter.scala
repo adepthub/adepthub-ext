@@ -101,7 +101,9 @@ object IvyImportResultInserter extends Logging {
 
           val existingVariantMetadata = VariantMetadata.read(id, variantMetadata.hash, repository,
             checkHash = true)
-          if (!existingVariantMetadata.isDefined) { //this variant exists already so skip it
+          if (!existingVariantMetadata.isDefined) {
+            logger.debug(s"Writing variant metadata ${id.value} to repository ${repository.dir}: ${
+                variantMetadata.jsonString}")
             variantMetadata.write(id, repository)
             result.artifacts.foreach { artifact =>
               ArtifactMetadata.fromArtifact(artifact).write(artifact.hash, repository)
