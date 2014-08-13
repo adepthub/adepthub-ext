@@ -8,6 +8,8 @@ addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.10.1")
 
 addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.8")
 
+addSbtPlugin("com.vast.sbt" % "sbt-sl4fj" % "0.2.0")
+
 //resolvers += Resolver.url("adepthub-sbt-plugin-releases",
 //  new URL("http://adepthub.github.io/ah-sbt-plugin/releases"))(
 //    Resolver.ivyStylePatterns)

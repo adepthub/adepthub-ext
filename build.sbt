@@ -53,6 +53,6 @@ lazy val adepthubSbt = project.in(file("adepthub-sbt")).settings(
   scalacOptions += "-target:jvm-"+jvmTarget,
   sbtPlugin := true,
   libraryDependencies ++= Seq(
-    "org.slf4j" % "slf4j-nop" % "1.6.1"
+//    "org.slf4j" % "slf4j-nop" % "1.6.1",
   )
 ).dependsOn(adepthubExt)
