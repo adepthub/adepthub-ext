@@ -24,7 +24,7 @@ object ContributeCommand {
 class ContributeCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int,
                         minorJavaVersion: Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration],
                         lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
-  def execute(state: State): State = {
+  def realExecute(state: State): State = {
     val logger = state.globalLogging.full
     if (args.isEmpty) {
       logger.error("Wrong number of arguments: ah contribute-imports <package-spec>")

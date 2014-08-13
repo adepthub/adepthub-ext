@@ -32,7 +32,7 @@ class IvyInstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJava
                         minorJavaVersion: Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration],
                         lockfileGetter: String => File, adepthub: AdeptHub)
   extends AdeptCommand {
-  def execute(state: State): State = {
+  def realExecute(state: State): State = {
     try {
       installIvyPackage(state)
       state

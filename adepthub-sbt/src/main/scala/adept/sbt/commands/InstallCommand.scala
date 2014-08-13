@@ -28,7 +28,7 @@ object InstallCommand {
 class InstallCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int,
                      minorJavaVersion: Int, confs: Set[String], ivyConfigurations: Seq[sbt.Configuration],
                      lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
-  def execute(state: State): State = {
+  def realExecute(state: State): State = {
     val logger = state.globalLogging.full
     val defaultConf = "compile" //TODO: setting
     val lockfiles = SbtUtils.evaluateTask(AdeptKeys.adeptLockfiles, SbtUtils.currentProject(state), state)

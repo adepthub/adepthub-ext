@@ -19,7 +19,7 @@ object InfoCommand {
 
 class InfoCommand(args: Seq[String], lockfileGetter: String => File, adepthub: AdeptHub)
   extends AdeptCommand {
-  def execute(state: State): State = {
+  def realExecute(state: State): State = {
     val logger = state.globalLogging.full
     val lockfiles = SbtUtils.evaluateTask(AdeptKeys.adeptLockfiles, SbtUtils.currentProject(state), state)
     val parsedArgs = if (args.size == 0) {
