@@ -29,7 +29,9 @@ object Module {
 
     val (baseVariants, otherVariants) = variants.partition(_.id == baseId)
 
-    if (baseVariants.size != 1) throw new Exception("Could not find one base variant with id: " + baseId + " in:\n" + variants.mkString("\n"))
+    if (baseVariants.size != 1)
+      throw new Exception("Could not find one base variant with id: " + baseId + " in:\n" +
+        variants.mkString("\n"))
 
     val attributedBaseVariant = {
       val variant = baseVariants.head
@@ -42,10 +44,13 @@ object Module {
         variant.copy(
           attributes = variant.attributes.filter(_.name != AttributeDefaults.ModuleHashAttribute) +
             Attribute(AttributeDefaults.ModuleHashAttribute, Set(moduleHash)),
-          requirements = variant.requirements + Requirement(baseId, Set(Constraint(AttributeDefaults.ModuleHashAttribute, Set(moduleHash))), Set.empty))
+          requirements = variant.requirements + Requirement(baseId, Set(Constraint(
+            AttributeDefaults.ModuleHashAttribute, Set(moduleHash))), Set.empty))
     }.toMap
-    val result = (attributedOtherVariants + attributedBaseVariant)
-    if (result.values.size != variants.size) throw new Exception("Could not modularise! Multiple variants with same hashes? Variants are: " + variants + ". Hashes are: " + result.keys.toSet)
+    val result = attributedOtherVariants + attributedBaseVariant
+    if (result.values.size != variants.size)
+      throw new Exception("Could not modularise! Multiple variants with same hashes? Variants are: " +
+        variants + ". Hashes are: " + result.keys.toSet)
     result
   }
 

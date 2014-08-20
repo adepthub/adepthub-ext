@@ -1,4 +1,4 @@
-scalaVersion := "2.10.3"
+scalaVersion := "2.10.4"
 
 scalacOptions += "-feature"
 
@@ -6,7 +6,7 @@ scalacOptions += "-deprecation"
 
 val jvmTarget = "1.6"
 
-incOptions := incOptions.value.withNameHashing(true)
+incOptions := incOptions.value.withNameHashing(nameHashing = true)
 
 lazy val adeptVersion = "0.9.2.6"
 
@@ -19,13 +19,15 @@ lazy val adepthubExt = project.in(file("adepthub-ext")).settings(
   version := adeptVersion,
   organization := adepthubOrg,
   scalacOptions += "-target:jvm-"+jvmTarget,
-  resolvers += Resolver.url("Typesafe Ivy releases", url("https://repo.typesafe.com/typesafe/releases/"))(Resolver.ivyStylePatterns),
+  resolvers += Resolver.url("Typesafe Ivy releases", url("https://repo.typesafe.com/typesafe/releases/"))(
+    Resolver.ivyStylePatterns),
   libraryDependencies ++= Seq(
     "org.apache.ivy" % "ivy" % "2.3.0",
     "org.apache.httpcomponents" % "httpclient" % "4.3.3",
     "org.apache.httpcomponents" % "httpmime" % "4.3.3",
     "org.apache.commons" % "commons-io" % "1.3.2",
-    //TODO: typesafe ivy release is down :( renable "org.scala-sbt.ivy"  % "ivy" % "2.4.0-sbt-d6fca11d63402c92e4167cdf2da91a660d043392",
+    // TODO: typesafe ivy release is down :( reenable
+    // "org.scala-sbt.ivy"  % "ivy" % "2.4.0-sbt-d6fca11d63402c92e4167cdf2da91a660d043392",
     "org.scalatest" %% "scalatest" % "2.0" % "test"
   )
 ).dependsOn(adeptCore)
@@ -52,6 +54,6 @@ lazy val adepthubSbt = project.in(file("adepthub-sbt")).settings(
   scalacOptions += "-target:jvm-"+jvmTarget,
   sbtPlugin := true,
   libraryDependencies ++= Seq(
-    "org.slf4j" % "slf4j-nop" % "1.6.1"
+    "org.slf4j" % "slf4j-api" % "1.7.7"
   )
 ).dependsOn(adepthubExt)

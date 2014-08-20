@@ -1,38 +1,29 @@
 package adept.sbt.commands
 
-import sbt.State
 import java.io.File
+
 import adept.AdeptHub
-import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
-import adept.resolution.models._
-import adepthub.models._
-import adept.repository.metadata._
-import adept.repository.models._
-import adept.ext.models.Module
-import adept.ext.VersionRank
-import adept.ivy.IvyUtils
-import adept.lockfile.Lockfile
-import adept.lockfile.LockfileConverters
-import adept.sbt.AdeptDefaults
-import adept.sbt.SbtUtils
-import adept.ivy.IvyConstants
-import adept.ext.AttributeDefaults
-import adept.sbt.AdeptKeys
 import adept.ext.JavaVersions
+import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
+import adept.lockfile.{Lockfile, LockfileConverters}
+import adept.sbt.{AdeptKeys, SbtUtils}
+import sbt.State
 
 object RmCommand {
   import sbt.complete.DefaultParsers._
-  import sbt.complete._
 
-  def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, lockfileGetter: String => File, adepthub: AdeptHub) = {
-    ((token("rm") ~> (Space ~> NotSpaceClass.+).+).map { args =>
-      new RmCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion, lockfileGetter, adepthub)
-    })
+  def using(scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, lockfileGetter:
+  String => File, adepthub: AdeptHub) = {
+    (token("rm") ~> (Space ~> NotSpaceClass.+).+).map { args =>
+      new RmCommand(args.map(_.mkString), scalaBinaryVersion, majorJavaVersion, minorJavaVersion,
+        lockfileGetter, adepthub)
+    }
   }
 }
 
-class RmCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int, lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
-  def execute(state: State): State = {
+class RmCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion: Int, minorJavaVersion: Int,
+                lockfileGetter: String => File, adepthub: AdeptHub) extends AdeptCommand {
+  def realExecute(state: State): State = {
     val logger = state.globalLogging.full
     val lockfiles = SbtUtils.evaluateTask(AdeptKeys.adeptLockfiles, SbtUtils.currentProject(state), state)
     val parsedArgs = if (args.size == 1) {
@@ -78,14 +69,17 @@ class RmCommand(args: Seq[String], scalaBinaryVersion: String, majorJavaVersion:
                   overrides = overrides,
                   providedVariants = javaVariants) match {
                     case Right((resolveResult, lockfile)) =>
-                      if (!lockfileFile.getParentFile().isDirectory() && !lockfileFile.getParentFile().mkdirs()) throw new Exception("Could not create directory for lockfile: " + lockfileFile.getAbsolutePath)
+                      if (!lockfileFile.getParentFile.isDirectory && !lockfileFile.getParentFile.mkdirs())
+                        throw new Exception("Could not create directory for lockfile: " +
+                          lockfileFile.getAbsolutePath)
                       adepthub.writeLockfile(lockfile, lockfileFile)
                       logger.info(s"In $conf removed:\n" + removeRequirements.map(_.id.value).mkString("\n"))
                       Right()
                     case Left(result) =>
-                      val resolveState = result.state
-                      logger.error("Got an error while resolving so could not remove:\n" + removeRequirements.map(_.id.value).mkString("\n"))
-                      logger.debug(AdeptHub.renderErrorReport(result, requirements, inputContext, overrides).msg)
+                      logger.error("Got an error while resolving so could not remove:\n" +
+                        removeRequirements.map(_.id.value).mkString("\n"))
+                      logger.debug(AdeptHub.renderErrorReport(result, requirements, inputContext,
+                        overrides).msg)
                       Left()
                   }
               }

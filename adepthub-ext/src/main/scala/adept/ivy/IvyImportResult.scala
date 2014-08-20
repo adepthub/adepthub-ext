@@ -11,9 +11,11 @@ import adept.repository.metadata.InfoMetadata
 case class IvyImportResult(variant: Variant, artifacts: Set[Artifact], localFiles: Map[ArtifactHash, File],
                            repository: RepositoryName, versionInfo: Set[(RepositoryName, Id, Version)],
                            excludeRules: Map[(Id, Id), Set[(String, String)]], extendsIds: Set[Id],
-                           info: Option[InfoMetadata], resourceFile: Option[File], resourceOriginalFile: Option[File])
+                           info: Option[InfoMetadata], resourceFile: Option[File],
+                           resourceOriginalFile: Option[File])
 
-case class VersionInfo(name: RepositoryName, id: Id, version: Version) //TODO: use this one in IvyImportResult as well!
+//TODO: use this one in IvyImportResult as well!
+case class VersionInfo(name: RepositoryName, id: Id, version: Version)
 case class AdeptExclude(on: Id, requirement: Id)
 case class IvyExclude(org: String, name: String)
 case class AdeptExcludeMapping(adeptExclude: AdeptExclude, ivyExcludes: Set[IvyExclude])

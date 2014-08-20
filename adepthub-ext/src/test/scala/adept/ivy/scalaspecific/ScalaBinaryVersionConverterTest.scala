@@ -33,7 +33,10 @@ class ScalaBinaryVersionConverterTest extends FunSuite with Matchers {
       resourceOriginalFile = None))
 
     result.variant.id shouldEqual Id("test/thing")
-    result.variant.requirements shouldEqual Set(Requirement(scalaLibMaster, Set(Constraint(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))), Set.empty), Requirement(scalaLibCompile, Set(Constraint(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))), Set.empty))
+    result.variant.requirements shouldEqual Set(Requirement(scalaLibMaster,
+      Set(Constraint(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))), Set.empty),
+      Requirement(scalaLibCompile, Set(Constraint(AttributeDefaults.BinaryVersionAttribute,
+        Set("2.10"))), Set.empty))
   }
 
   test("Basic tests: converting results with configs") {
@@ -41,9 +44,12 @@ class ScalaBinaryVersionConverterTest extends FunSuite with Matchers {
     val result = convertResultWithScalaBinaryVersion(IvyImportResult(
       variant = Variant(
         id = Id("test/thing_2.10/config/compile"),
-        requirements = Set(Requirement(scalaLibCompile, Set.empty, Set.empty), Requirement(Id("foo_2.10/config/compile"), Set.empty, Set.empty), Requirement(Id("zoo/config/compile"), Set.empty, Set.empty))),
+        requirements = Set(Requirement(scalaLibCompile, Set.empty, Set.empty),
+          Requirement(Id("foo_2.10/config/compile"), Set.empty, Set.empty),
+          Requirement(Id("zoo/config/compile"), Set.empty, Set.empty))),
       repository = RepositoryName("testrepo"),
-      versionInfo = Set((scalaRepository, scalaLibCompile, Version("2.10.1")), (RepositoryName("foobar"), Id("foo_2.10/config/compile"), Version("1.0"))),
+      versionInfo = Set((scalaRepository, scalaLibCompile, Version("2.10.1")),
+        (RepositoryName("foobar"), Id("foo_2.10/config/compile"), Version("1.0"))),
       //we do not care about these:
       localFiles = Map.empty,
       artifacts = Set.empty,
@@ -54,7 +60,11 @@ class ScalaBinaryVersionConverterTest extends FunSuite with Matchers {
       resourceOriginalFile = None))
 
     result.variant.id shouldEqual Id("test/thing/config/compile")
-    result.variant.requirements shouldEqual Set(Requirement(scalaLibCompile, Set(Constraint(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))), Set.empty), Requirement(Id("foo/config/compile"), Set.empty, Set.empty), Requirement(Id("zoo/config/compile"), Set.empty, Set.empty))
-    result.versionInfo shouldEqual Set((scalaRepository, scalaLibCompile, Version("2.10.1")), (RepositoryName("foobar"), Id("foo/config/compile"), Version("1.0"))) //notice the _2.10 is gone
+    result.variant.requirements shouldEqual Set(Requirement(scalaLibCompile,
+      Set(Constraint(AttributeDefaults.BinaryVersionAttribute, Set("2.10"))), Set.empty),
+      Requirement(Id("foo/config/compile"), Set.empty, Set.empty), Requirement(Id("zoo/config/compile"),
+        Set.empty, Set.empty))
+    result.versionInfo shouldEqual Set((scalaRepository, scalaLibCompile, Version("2.10.1")),
+      (RepositoryName("foobar"), Id("foo/config/compile"), Version("1.0"))) //notice the _2.10 is gone
   }
 }

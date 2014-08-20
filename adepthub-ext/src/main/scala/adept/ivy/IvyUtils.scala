@@ -50,12 +50,12 @@ private[adept] object IvyUtils extends Logging {
       dependencyDescriptor <- Option(currentIvyNode.getDependencyDescriptor(parentNode))
         .toSet[DependencyDescriptor]
       excludeRule <- {
-        if (dependencyDescriptor.getAllIncludeRules().nonEmpty) {
+        if (dependencyDescriptor.getAllIncludeRules.nonEmpty) {
           logger.warn("in: " + parentNode + " there is a dependency:" + currentIvyNode +
-            " which has inlcude rules: " + dependencyDescriptor.getAllIncludeRules().toList +
+            " which has include rules: " + dependencyDescriptor.getAllIncludeRules.toList +
             " which are not supported") //TODO: add support
         }
-        dependencyDescriptor.getAllExcludeRules()
+        dependencyDescriptor.getAllExcludeRules
       }
     } yield {
       val moduleId = excludeRule.getId.getModuleId
@@ -64,7 +64,7 @@ private[adept] object IvyUtils extends Logging {
   }
 
   def getParentNode(resolveReport: ResolveReport) = {
-    resolveReport.getDependencies().asScala.map { case i: IvyNode => i}.head //Feels a bit scary?
+    resolveReport.getDependencies.asScala.map { case i: IvyNode => i }.head //Feels a bit scary?
   }
 
   def load(path: Option[String] = None, ivyLogger: AbstractMessageLogger = errorIvyLogger): Ivy = {
@@ -84,7 +84,7 @@ private[adept] object IvyUtils extends Logging {
       ivy
     }
 
-    val settings = loadedIvy.getSettings()
+    val settings = loadedIvy.getSettings
     //FIXME: TODO I do not understand why this does not WORK?!?! Perhaps I didn't well enough?
     //ivyRoot.foreach(settings.setDefaultIvyUserDir)
     loadedIvy.setSettings(settings)
@@ -106,7 +106,7 @@ private[adept] object IvyUtils extends Logging {
 
   private def getUrlResolvers(ivy: Ivy) = {
     val settings = ivy.getSettings
-    val urlResolvers = settings.getResolverNames().asScala.toList.flatMap {
+    val urlResolvers = settings.getResolverNames.asScala.toList.flatMap {
       case name: String => //names must be strings (at least I think so...)
         settings.getResolver(name) match {
           case urlResolver: URLResolver => Some(urlResolver)

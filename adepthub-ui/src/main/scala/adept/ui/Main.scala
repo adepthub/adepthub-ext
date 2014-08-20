@@ -24,10 +24,11 @@ object Main extends App {
   Await.result(ask(actor, Http.Bind(handler, interface = "localhost", port = Port)), timeout.duration) match {
     case result: akka.io.Tcp.CommandFailed =>
       system.shutdown()
-      throw new Exception("Cannot bind to server on localhost port: " + Port + " so shutting down. Adept UI running somewhere else?")
+      throw new Exception("Cannot bind to server on localhost port: " + Port +
+        " so shutting down. Adept UI running somewhere else?")
     case _ =>
-      if (Desktop.isDesktopSupported()) {
-        Desktop.getDesktop().browse(new URI("http://localhost:" + Port));
+      if (Desktop.isDesktopSupported) {
+        Desktop.getDesktop.browse(new URI("http://localhost:" + Port))
       } else {
         throw new Exception("Cannot open browser")
       }
