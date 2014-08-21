@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ScalaSbtSettings">
+    <option name="linkedExternalProjectsSettings">
+      <SbtProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/adept" />
+            <option value="$PROJECT_DIR$/adept/adept-core" />
+            <option value="$PROJECT_DIR$/adept/adept-core/project" />
+            <option value="$PROJECT_DIR$/adept/adept-lockfile" />
+            <option value="$PROJECT_DIR$/adept/adept-lockfile/project" />
+            <option value="$PROJECT_DIR$/adept/project" />
+            <option value="$PROJECT_DIR$/adepthub-ext" />
+            <option value="$PROJECT_DIR$/adepthub-ext/project" />
+            <option value="$PROJECT_DIR$/adepthub-sbt" />
+            <option value="$PROJECT_DIR$/adepthub-sbt/project" />
+            <option value="$PROJECT_DIR$/adepthub-ui" />
+            <option value="$PROJECT_DIR$/adepthub-ui/project" />
+            <option value="$PROJECT_DIR$/project" />
+          </set>
+        </option>
+        <option name="useAutoImport" value="true" />
+      </SbtProjectSettings>
+    </option>
+  </component>
+</project>
+

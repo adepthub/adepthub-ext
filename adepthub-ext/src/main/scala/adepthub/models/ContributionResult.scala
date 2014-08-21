@@ -1,25 +1,27 @@
 package adepthub.models
 
+import adept.artifact.models.JsonSerializable
 import adept.repository.models.RepositoryName
 import adept.repository.models.Commit
-import play.api.libs.json.Format
+import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
+import adept.services.JsonService
 
 case class ContributionResult(repository: RepositoryName, commit: Commit, locations: Seq[String])
+  extends JsonSerializable {
+  override def writeJson(generator: JsonGenerator): Unit = {
+    generator.writeStringField("repository", repository.value)
+    generator.writeStringField("commit", commit.value)
+    JsonService.writeStringArrayField("locations", locations, generator)
+  }
+}
 
 object ContributionResult {
-  import play.api.libs.functional.syntax._
-  import play.api.libs.json._
-  implicit val format : Format[ContributionResult] = {
-    (
-      (__ \ "repository").format[String] and
-      (__ \ "commit").format[String] and
-      (__ \ "locations").format[Seq[String]])({
-        case (repository, commit, locations) =>
-          ContributionResult(RepositoryName(repository), Commit(commit), locations)
-      }, unlift({ c: ContributionResult=>
-        val ContributionResult(repository, commit, locations) = c
-        Some((repository.value, commit.value, locations))
-      }))
+  def fromJson(parser: JsonParser): ContributionResult = {
+    JsonService.parseObject(parser, Map(
+      ("repository", _.getValueAsString),
+      ("commit", _.getValueAsString),
+      ("locations", JsonService.parseStringSeq)
+    ), valueMap => ContributionResult(RepositoryName(valueMap.getString("repository")),
+      Commit(valueMap.getString("commit")), valueMap.getStringSeq("locations")))
   }
-
 }

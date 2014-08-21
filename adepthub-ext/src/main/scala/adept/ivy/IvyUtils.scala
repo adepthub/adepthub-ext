@@ -1,33 +1,27 @@
 package adept.ivy
 
-import org.apache.ivy.core.module.descriptor.ExcludeRule
-import adept.resolution.models.Variant
-import org.apache.ivy.core.report.ResolveReport
-import org.apache.ivy.util.AbstractMessageLogger
-import org.apache.ivy.util.Message
-import org.apache.ivy.Ivy
-import org.apache.ivy.core.resolve.IvyNode
-import org.apache.ivy.core.IvyContext
 import java.io.File
-import org.apache.ivy.core.resolve.ResolveOptions
-import org.apache.ivy.core.module.id.ModuleId
-import adept.resolution.models.Id
-import adept.repository.models.RepositoryName
+
 import adept.ext.Version
-import org.apache.ivy.core.module.id.ModuleRevisionId
-import org.apache.ivy.core.module.descriptor.DependencyDescriptor
 import adept.logging.Logging
-import org.apache.ivy.core.module.descriptor.ModuleDescriptor
+import adept.repository.models.RepositoryName
+import adept.resolution.models.{Id, Variant}
+import org.apache.ivy.Ivy
+import org.apache.ivy.core.IvyContext
 import org.apache.ivy.core.cache.ResolutionCacheManager
-import org.apache.ivy.core.search.OrganisationEntry
-import org.apache.ivy.core.search.ModuleEntry
+import org.apache.ivy.core.module.descriptor.DependencyDescriptor
+import org.apache.ivy.core.module.id.{ModuleId, ModuleRevisionId}
+import org.apache.ivy.core.report.ResolveReport
+import org.apache.ivy.core.resolve.{IvyNode, ResolveOptions}
+import org.apache.ivy.core.search.{ModuleEntry, OrganisationEntry}
 import org.apache.ivy.plugins.resolver.URLResolver
-import org.apache.ivy.core.search.RevisionEntry
+import org.apache.ivy.util.{AbstractMessageLogger, Message}
 import org.eclipse.jgit.lib.ProgressMonitor
 
 private[adept] object IvyUtils extends Logging {
-  import IvyConstants._
-  import collection.JavaConverters._
+
+  import adept.ivy.IvyConstants._
+  import scala.collection.JavaConverters._
 
   lazy val errorIvyLogger = new AdeptIvyMessageLogger(Message.MSG_ERR)
   lazy val warnIvyLogger = new AdeptIvyMessageLogger(Message.MSG_WARN)
@@ -35,29 +29,33 @@ private[adept] object IvyUtils extends Logging {
   lazy val debugIvyLogger = new AdeptIvyMessageLogger(Message.MSG_DEBUG)
 
   /** As in sbt */
-  private[ivy] def cleanModule(mrid: ModuleRevisionId, resolveId: String, manager: ResolutionCacheManager) {
+  private[ivy] def cleanModule(mrid: ModuleRevisionId, resolveId: String, manager:
+  ResolutionCacheManager) {
     val files =
       Option(manager.getResolvedIvyPropertiesInCache(mrid)).toList :::
         Option(manager.getResolvedIvyFileInCache(mrid)).toList :::
         Option(manager.getResolvedIvyPropertiesInCache(mrid)).toList :::
         Option(manager.getConfigurationResolveReportsInCache(resolveId)).toList.flatten
-    import scala.reflect.io.Directory
-    files.foreach { file =>
-      (new Directory(file)).deleteRecursively() //TODO: I hope this works on files and on directories? Perhaps use something else? 
+    import org.apache.commons.io.FileUtils
+    files.foreach {
+      file => FileUtils.deleteDirectory(if (file.isDirectory) file else file.getParentFile)
     }
     //TODO: replace the above with this: manager.clean() ?
   }
 
   def getExcludeRules(parentNode: IvyNode, ivyNode: IvyNode) = {
-    for { //handle nulls
+    for {//handle nulls
       parentNode <- Option(parentNode).toSet[IvyNode]
       currentIvyNode <- Option(ivyNode).toSet[IvyNode]
-      dependencyDescriptor <- Option(currentIvyNode.getDependencyDescriptor(parentNode)).toSet[DependencyDescriptor]
+      dependencyDescriptor <- Option(currentIvyNode.getDependencyDescriptor(parentNode))
+        .toSet[DependencyDescriptor]
       excludeRule <- {
-        if (dependencyDescriptor.getAllIncludeRules().nonEmpty) {
-          logger.warn("in: " + parentNode + " there is a dependency:" + currentIvyNode + " which has inlcude rules: " + dependencyDescriptor.getAllIncludeRules().toList + " which are not supported") //TODO: add support
+        if (dependencyDescriptor.getAllIncludeRules.nonEmpty) {
+          logger.warn("in: " + parentNode + " there is a dependency:" + currentIvyNode +
+            " which has include rules: " + dependencyDescriptor.getAllIncludeRules.toList +
+            " which are not supported") //TODO: add support
         }
-        dependencyDescriptor.getAllExcludeRules()
+        dependencyDescriptor.getAllExcludeRules
       }
     } yield {
       val moduleId = excludeRule.getId.getModuleId
@@ -66,7 +64,7 @@ private[adept] object IvyUtils extends Logging {
   }
 
   def getParentNode(resolveReport: ResolveReport) = {
-    resolveReport.getDependencies().asScala.map { case i: IvyNode => i }.head //Feels a bit scary?
+    resolveReport.getDependencies.asScala.map { case i: IvyNode => i }.head //Feels a bit scary?
   }
 
   def load(path: Option[String] = None, ivyLogger: AbstractMessageLogger = errorIvyLogger): Ivy = {
@@ -86,8 +84,9 @@ private[adept] object IvyUtils extends Logging {
       ivy
     }
 
-    val settings = loadedIvy.getSettings()
-    //ivyRoot.foreach(settings.setDefaultIvyUserDir) //FIXME: TODO I do not understand why this does not WORK?!?! Perhaps I didn't well enough?
+    val settings = loadedIvy.getSettings
+    //FIXME: TODO I do not understand why this does not WORK?!?! Perhaps I didn't well enough?
+    //ivyRoot.foreach(settings.setDefaultIvyUserDir)
     loadedIvy.setSettings(settings)
     loadedIvy
   }
@@ -107,7 +106,7 @@ private[adept] object IvyUtils extends Logging {
 
   private def getUrlResolvers(ivy: Ivy) = {
     val settings = ivy.getSettings
-    val urlResolvers = settings.getResolverNames().asScala.toList.flatMap {
+    val urlResolvers = settings.getResolverNames.asScala.toList.flatMap {
       case name: String => //names must be strings (at least I think so...)
         settings.getResolver(name) match {
           case urlResolver: URLResolver => Some(urlResolver)
@@ -121,19 +120,21 @@ private[adept] object IvyUtils extends Logging {
     progress.beginTask("Listing " + org, ProgressMonitor.UNKNOWN)
     val all = getUrlResolvers(ivy).flatMap { dependencyResolver =>
       progress.update(1)
-      dependencyResolver.listModules(new OrganisationEntry(dependencyResolver, org)).flatMap { moduleEntry =>
-        progress.update(1)
-        dependencyResolver.listRevisions(moduleEntry).map { revisionEntry =>
+      dependencyResolver.listModules(new OrganisationEntry(dependencyResolver, org)).flatMap {
+        moduleEntry =>
           progress.update(1)
-          (revisionEntry.getOrganisation, revisionEntry.getModule, revisionEntry.getRevision)
-        }
+          dependencyResolver.listRevisions(moduleEntry).map { revisionEntry =>
+            progress.update(1)
+            (revisionEntry.getOrganisation, revisionEntry.getModule, revisionEntry.getRevision)
+          }
       }
     }.toSet
     progress.endTask()
     all
   }
 
-  def list(ivy: Ivy, org: String, module: String, progress: ProgressMonitor): Set[(String, String, String)] = {
+  def list(ivy: Ivy, org: String, module: String, progress: ProgressMonitor): Set[(String,
+    String, String)] = {
     progress.beginTask("Listing " + org + "#" + module, ProgressMonitor.UNKNOWN)
     val all = getUrlResolvers(ivy).flatMap { dependencyResolver =>
       val orgEntry = new OrganisationEntry(dependencyResolver, org)

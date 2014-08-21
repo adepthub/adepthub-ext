@@ -1,6 +1,8 @@
 ## Concepts
 
-To be able to resolve Adept needs 2 things: - a set of requirements; and - the context in which is Adept
+To be able to resolve Adept needs 2 things: 
+- a set of requirements; and 
+- the context in which Adept
 resolves
 
 The output of a successful resolution is a lockfile which contains the input requirements and context as well
@@ -18,10 +20,13 @@ determine whether you need something or not. Constraints do a strict **equality*
 variant has an attribute with the same name and the same value.
 
 For example "I require a Scala library that is binary compatible with 2.10", which means I am constraining
-Adept to any scala library with a 2.10 binary version. I do not "depend" on it, because:  1. It might be/is
-probably already there (as part of the build tool).  2. There is no unique "thing" which is "Scala library
+Adept to any scala library with a 2.10 binary version. I do not "depend" on it, because:  
+1. It might be/is
+probably already there (as part of the build tool).  
+2. There is no unique "thing" which is "Scala library
 binary version 2.10", there are multiple variants/versions of the Scala library with a binary version that all
-match my requirement (2.10.0, 2.10.1, ...).  3. It might not be true that you actually are "depending on it"
+match my requirement (2.10.0, 2.10.1, ...).  
+3. It might not be true that you actually are "depending on it"
 since the resolution might override your dependency. In Adept, however, the resolution is strict: failed
 requirements make resolution fail and, for example, tell you that you need at Scala library 2.11 because one
 or more of your libraries requires 2.11.
@@ -79,9 +84,11 @@ Resolution in Adept is the process of getting all the variants that match a set 
 different model for resolution than most (all?) other dependency managers because there is no conflict
 management during resolution. Before resolution can happen, the transitive context is loaded where the latest
 metadata commit is chosen for each repository and all variants gets ranked, i.e. removing lower ranked
-variants.  The algorithm is built as follows:  - Starting with the input requirements, get all variants with
+variants.  The algorithm is built as follows:  
+- Starting with the input requirements, get all variants with
 the required ID with attributes matching the constraints. A variant is considered to be *resolved* if it is
-the only variant with this ID, then;  - Traverse the tree of transitive requirements for every resolved
+the only variant with this ID, then;  
+- Traverse the tree of transitive requirements for every resolved
 variant and continue with the children. Resolution stops when all IDs have been either: resolved or found
 over-constrained (there are no variants that match all of the current constraints). If Adept is
 under-constrained (there is more than one variant per ID), it will try every combination of the
@@ -133,13 +140,15 @@ it will fail. By extension this also means that Adept, on its own merits, does n
 more powerful capabilities can be obtained by using the traits of Adept's resolution engine and the binary
 version and version attributes (which are just are 2 standardised named attributes). In this context, binary
 version is used throughout AdeptHub extensions (not in Adept) to indicate which variants are binary
-compatible. Here are 3 examples of the most commonly used version schemes and how they are implemented: - To
-emulate "standard" Ivy/Maven versioning, all variants are in the same ranking file, sorted by their version
+compatible. Here are 3 examples of the most commonly used version schemes and how they are implemented: 
+- To emulate "standard" Ivy/Maven versioning, all variants are in the same ranking file, sorted by their version
 string. The sorting happens when variants are published, contrary to Ivy/Maven where this happens as part of
-the resolution process. - To emulate semantic versioning, all compatible variants have the same
+the resolution process. 
+- To emulate semantic versioning, all compatible variants have the same
 binary-version, ranked according to their version in the same ranking file. When there are more than one
 ranking file, users will be under-constrained (there is not only one variant) thus forced to specify the
-binary version in order to resolve. - To emulate backwards compatibility, all backwards compatible variants
+binary version in order to resolve. 
+- To emulate backwards compatibility, all backwards compatible variants
 are in the same ranking, each successive variant has it own binary version and all the ones from the former
 (Java 1.6 has binary version values: 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6). When the context is computed, the
 variant with highest binary version will be chosen (because of its higher rank).

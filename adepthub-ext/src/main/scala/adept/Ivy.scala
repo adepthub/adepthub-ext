@@ -1,30 +1,26 @@
 package adept
 
-import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
-import adept.ivy.IvyUtils
-import adept.ivy.IvyAdeptConverter
-import adept.ivy.IvyImportResultInserter
-import adept.lockfile.Lockfile
-import org.eclipse.jgit.lib.ProgressMonitor
-import adept.resolution.models.Constraint
 import adept.ext.AttributeDefaults
-import adept.ivy.IvyConstants
-import java.io.File
+import adept.ivy.{IvyAdeptConverter, IvyImportResultInserter, IvyUtils}
+import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
+import adept.resolution.models.Constraint
 
 private[adept] object Ivy {
-  def getExisting(adeptHub: AdeptHub, scalaBinaryVersion: String)(org: String, name: String, revision: String, configurations: Set[String]) = {
+  def getExisting(adeptHub: AdeptHub, scalaBinaryVersion: String)(org: String, name: String, revision: String,
+                                                                  configurations: Set[String]) = {
     val id = ScalaBinaryVersionConverter.extractId(IvyUtils.ivyIdAsId(org, name))
-    val repositoryName = IvyUtils.ivyIdAsRepositoryName(org)
-    val configuredIds = configurations.map(IvyUtils.withConfiguration(id, _))
-    val searchResults = adeptHub.search(id.value, constraints = Set(Constraint(AttributeDefaults.VersionAttribute, Set(revision))), allowLocalOnly = false)
+    val searchResults = adeptHub.search(id.value, constraints = Set(Constraint(
+      AttributeDefaults.VersionAttribute, Set(revision))), allowLocalOnly = false)
     val modules = searchResults.groupBy(_.variant.attribute(AttributeDefaults.ModuleHashAttribute))
     val foundMatchingVariants = modules.filter {
       case (_, results) =>
-        //Since we are removing the scala binary version (e.g. _2.10) from the Id, we have to check the variants for their scala version if not we can risk skipping an import  (then fail on resolution) 
+        // Since we are removing the scala binary version (e.g. _2.10) from the Id, we have to check the
+        // variants for their scala version if not we can risk skipping an import (then fail on resolution)
         val matchingScala = results.filter { result =>
           !result.variant.requirements.exists { requirement =>
             if (ScalaBinaryVersionConverter.scalaLibIds(requirement.id)) {
-              requirement.constraint(AttributeDefaults.BinaryVersionAttribute) != Constraint(AttributeDefaults.BinaryVersionAttribute, Set(scalaBinaryVersion))
+              requirement.constraint(AttributeDefaults.BinaryVersionAttribute) !=
+                Constraint(AttributeDefaults.BinaryVersionAttribute, Set(scalaBinaryVersion))
             } else {
               false
             }
@@ -38,7 +34,9 @@ private[adept] object Ivy {
     foundMatchingVariants
   }
 
-  def ivyImport(adeptHub: AdeptHub)(org: String, name: String, revision: String, ivy: _root_.org.apache.ivy.Ivy = adeptHub.defaultIvy, useScalaConvert: Boolean = true, forceImport: Boolean = false) = {
+  def ivyImport(adeptHub: AdeptHub)(org: String, name: String, revision: String,
+                                    ivy: _root_.org.apache.ivy.Ivy = adeptHub.defaultIvy,
+                                    useScalaConvert: Boolean = true, forceImport: Boolean = false) = {
     val ivyAdeptConverter = new IvyAdeptConverter(ivy)
     ivyAdeptConverter.ivyImport(org, name, revision, adeptHub.progress) match {
       case Right(ivyResults) =>
@@ -48,7 +46,8 @@ private[adept] object Ivy {
           }
         } else ivyResults
 
-        IvyImportResultInserter.insertAsResolutionResults(adeptHub.importsDir, adeptHub.baseDir, convertedIvyResults, adeptHub.progress)
+        IvyImportResultInserter.insertAsResolutionResults(adeptHub.importsDir, adeptHub.baseDir,
+          convertedIvyResults, adeptHub.progress)
         Right()
       case Left(errors) => Left(errors)
     }

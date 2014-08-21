@@ -1,5 +1,4 @@
 package adept.ivy
-import org.apache.ivy.util.Message
 import adept.ext.ConfigurationHelpers
 
 object IvyConstants {

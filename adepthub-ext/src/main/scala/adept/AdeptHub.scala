@@ -1,80 +1,32 @@
 package adept
 
 import java.io.File
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import adept.logging.Logging
-import scala.concurrent.Future
 import adept.resolution.models.Id
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.blocking
-import adept.resolution.Resolver
-import adept.resolution.models.Attribute
 import adept.resolution.models.Constraint
-import adept.resolution.models.Variant
 import adept.resolution.models.Requirement
-import adept.repository.AttributeConstraintFilter
 import adept.repository.models.RepositoryName
-import adept.repository.models.Commit
-import adept.repository.models.VariantHash
 import adept.resolution.resolver.models.ResolveResult
-import adept.repository.models.RepositoryLocations
 import adept.repository.models.ContextValue
-import scala.concurrent.ExecutionContext
 import adept.repository.Repository
 import adept.repository.GitRepository
 import adept.repository.metadata.VariantMetadata
-import adept.repository.metadata.RankingMetadata
-import adept.repository.metadata.ContextMetadata
-import adept.repository.metadata.RepositoryLocationsMetadata
 import adept.ivy.IvyUtils
-import adept.ivy.IvyConstants
-import adept.ivy.IvyAdeptConverter
-import adept.ivy.IvyImportResultInserter
-import adept.ivy.IvyRequirements
-import adept.ivy.scalaspecific.ScalaBinaryVersionConverter
-import org.eclipse.jgit.lib.{ ProgressMonitor, TextProgressMonitor }
-import adept.lockfile.{ LockfileConverters, Lockfile }
+import org.eclipse.jgit.lib.ProgressMonitor
+import adept.lockfile.{LockfileConverters, Lockfile}
 import adept.ext.AttributeDefaults
 import adept.repository.GitLoader
 import net.sf.ehcache.CacheManager
-import adept.ext.JavaVersions
-import adept.ext.VersionRank
-import scala.util.matching.Regex
-import java.util.zip.ZipEntry
-import java.io.FileOutputStream
-import java.util.zip.ZipOutputStream
-import java.io.FileInputStream
-import java.io.BufferedInputStream
-import org.apache.http.impl.client.DefaultHttpClient
-import org.apache.http.client.methods.HttpPost
-import org.apache.http.entity.mime.MultipartEntityBuilder
-import org.apache.http.entity.mime.content.StringBody
-import org.apache.http.entity.mime.HttpMultipartMode
-import org.apache.http.entity.mime.content.FileBody
-import org.apache.http.impl.client.HttpClientBuilder
-import org.apache.http.entity.ContentType
-import org.apache.http.client.methods.RequestBuilder
-import play.api.libs.json.Json
-import org.apache.http.StatusLine
-import _root_.adepthub.models.ContributionResult
-import adepthub.models._
-import org.apache.http.entity.StringEntity
-import adepthub.models.GitSearchResult
+import adept.models.{ImportSearchResult, GitSearchResult, SearchResult}
 import scala.concurrent.Await
 import adept.repository.metadata.ArtifactMetadata
-import adept.logging.JavaLogger
-import adept.ext.models.Module
 import adept.ivy.IvyImportError
 import java.io.IOException
 import adept.ext.models.ResolveErrorReport
-import adepthub.models.SearchResult
 import adept.ext.models.Module
 import adept.ext.VersionRank
 import adept.resolution.models.Variant
-import scala.util.Success
-import scala.util.Failure
-import adept.lockfile.LockfileContext
 
 object AdeptHub {
 
@@ -82,16 +34,17 @@ object AdeptHub {
     searchResults
       .groupBy(r => VersionRank.getVersion(r.variant))
       .toVector
-      .sortBy { case (version, _) => version }
+      .sortBy { case (version, _) => version}
       .lastOption.flatMap {
-        case (maybeVersion, results) =>
-          maybeVersion.map{ version =>
-            version -> results
-          }
-      }
+      case (maybeVersion, results) =>
+        maybeVersion.map { version =>
+          version -> results
+        }
+    }
   }
 
-  def getUniqueModule(expression: String, searchResults: Set[SearchResult]): Either[String, (String, Set[Variant])] = {
+  def getUniqueModule(expression: String, searchResults: Set[SearchResult]): Either[String,
+    (String, Set[Variant])] = {
     val modules = Module.getModules(searchResults.map(_.variant))
     if (modules.size == 0) {
       val msg = s"Could not find any variants matching '$expression'."
@@ -99,12 +52,13 @@ object AdeptHub {
     } else if (modules.size > 1) {
       val msg = s"Found more than one module matching '$expression'.\n" +
         "Results are:\n" + modules.map {
-          case ((base, _), variants) =>
-            base + "\n" + variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(variant.toString)).map("\t" + _).mkString("\n")
-        }.mkString("\n")
+        case ((base, _), variants) =>
+          base + "\n" + variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(
+            variant.toString)).map("\t" + _).mkString("\n")
+      }.mkString("\n")
       Left(msg)
     } else {
-      val ((baseIdString, moduleHash), variants) = modules.head
+      val ((baseIdString, _), variants) = modules.head
       Right((baseIdString, variants))
     }
   }
@@ -118,11 +72,13 @@ object AdeptHub {
         val hash = VariantMetadata.fromVariant(searchResult.variant).hash
         ContextValue(searchResult.variant.id, searchResult.repository, Some(searchResult.commit), hash)
       case searchResult: SearchResult =>
-        throw new Exception("Found a search result but expected either an import or a git search result: " + searchResult)
+        throw new Exception("Found a search result but expected either an import or a git search result: " +
+          searchResult)
     }
   }
 
-  def variantsAsConfiguredRequirements(potentialVariants: Set[Variant], baseIdString: String, confs: Set[String]) = {
+  def variantsAsConfiguredRequirements(potentialVariants: Set[Variant], baseIdString: String,
+                                       confs: Set[String]) = {
     val configuredIds = confs.map(IvyUtils.withConfiguration(Id(baseIdString), _))
     potentialVariants.filter { variant =>
       configuredIds(variant.id)
@@ -133,26 +89,30 @@ object AdeptHub {
 
   def newLockfileRequirements(newRequirements: Set[Requirement], lockfile: Lockfile) = {
     val newReqIds = newRequirements.map(_.id)
-    val requirements = newRequirements ++ (LockfileConverters.requirements(lockfile).filter { req =>
+    val requirements = newRequirements ++ LockfileConverters.requirements(lockfile).filter { req =>
       //remove old reqs which are overwritten
       !newReqIds(req.id)
-    })
+    }
     requirements
   }
 
   def newLockfileContext(context: Set[ContextValue], lockfile: Lockfile) = {
+    if (lockfile.getContext == null) {
+      throw new IllegalArgumentException("lockfile.context is null")
+    }
     val newContextIds = context.map(_.id)
-    context ++ (LockfileConverters.context(lockfile).filter { c =>
+    context ++ LockfileConverters.context(lockfile).filter { c =>
       //remove old context values which are overwritten
       !newContextIds(c.id)
-    })
+    }
   }
 
   def baseId(variants: Set[Variant]) = {
     variants.map(_.id.value).reduce(_ intersect _)
   }
 
-  def renderSearchResults(searchResults: Set[SearchResult], term: String, constraints: Set[Constraint] = Set.empty) = {
+  def renderSearchResults(searchResults: Set[SearchResult], term: String, constraints: Set[Constraint] =
+  Set.empty) = {
     val modules = searchResults.groupBy(_.variant.attribute(AttributeDefaults.ModuleHashAttribute)).map {
       case (moduleAttribute, searchResults) =>
         val variants = searchResults.map(_.variant)
@@ -173,30 +133,37 @@ object AdeptHub {
     val baseVersions = modules.map {
       case ((base, _, imported, local), variants) =>
         val locationString = if (imported) " (imported)" else if (!local) " (AdeptHub)" else " (local)"
-        base -> (variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(variant.toString)).map("\t" + _).mkString("\n") + locationString)
+        base -> (variants.map(variant => VersionRank.getVersion(variant).map(_.value).getOrElse(
+          variant.toString)).map("\t" + _).mkString("\n") + locationString)
     }
-    baseVersions.groupBy { case (base, _) => base }.map {
+    baseVersions.groupBy { case (base, _) => base}.map {
       case (base, grouped) =>
         val versions = grouped.map(_._2)
         base + "\n" + versions.mkString("\n")
     }.mkString("\n")
   }
 
-  def renderErrorReport(result: ResolveResult, requirements: Set[Requirement], context: Set[ContextValue], overrides: Set[ContextValue] = Set.empty) = {
+  def renderErrorReport(result: ResolveResult, requirements: Set[Requirement], context: Set[ContextValue],
+                        overrides: Set[ContextValue] = Set.empty) = {
     val state = result.state
-    val msg = (
-      if (state.isUnderconstrained) {
-        result.toString + "\n" +
-          "The graph is under-constrained (there are 2 or more variants matching the same ids). This is likely due to ivy imports. This will be fixed soon, but until then: contributing/uploading your ivy imports will fix this." + "\n"
-      } else {
-        result.toString
-      })
+    val msg = if (state.isUnderconstrained) {
+      result.toString + "\n" +
+        "The graph is under-constrained (there are 2 or more variants matching the same ids). This is" +
+        " likely due to ivy imports. This will be fixed soon, but until then: contributing/uploading your" +
+        " ivy imports will fix this." + "\n"
+    } else {
+      result.toString
+    }
     ResolveErrorReport(msg, result)
   }
 
 }
 
-class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheManager, val url: String = Defaults.url, val passphrase: Option[String] = None, val onlyOnline: Boolean = false, val progress: ProgressMonitor = Defaults.progress) extends Adept(baseDir, cacheManager, passphrase, progress) with Logging { //TODO: make logging configurable
+class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheManager, val url:
+               String = Defaults.url, val passphrase: Option[String] = None, val onlyOnline: Boolean = false,
+               val progress: ProgressMonitor = Defaults.progress) extends Adept(baseDir, cacheManager,
+  passphrase) with Logging {
+  //TODO: make logging configurable
   def defaultIvy = Defaults.ivy
 
   def get(name: RepositoryName, locations: Set[String]) = {
@@ -241,7 +208,8 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
           Some(searchResult.repository -> searchResult.locations.toSet)
         } else None
       case searchResult: SearchResult =>
-        throw new Exception("Found a search result but expected either an import or a git search result: " + searchResult)
+        throw new Exception("Found a search result but expected either an import or a git search result: " +
+          searchResult)
     }
     if (required.nonEmpty) {
       progress.beginTask("Fetching search result metadata", required.size)
@@ -254,13 +222,13 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
     }
   }
 
-  def ivyImport(org: String, name: String, revision: String, configurations: Set[String], scalaBinaryVersion: String, ivy: _root_.org.apache.ivy.Ivy = defaultIvy, useScalaConvert: Boolean = true, forceImport: Boolean = false): Either[Set[IvyImportError], Set[SearchResult]] = {
+  def ivyImport(org: String, name: String, revision: String, configurations: Set[String],
+                scalaBinaryVersion: String, ivy: _root_.org.apache.ivy.Ivy = defaultIvy,
+                useScalaConvert: Boolean = true, forceImport: Boolean = false):
+  Either[Set[IvyImportError], Set[SearchResult]] = {
     val existing = Ivy.getExisting(this, scalaBinaryVersion)(org, name, revision, configurations)
-    val doImport = forceImport || revision.endsWith("SNAPSHOT") || { //either force or snapshot, then always import 
-      existing.isEmpty
-    }
-
-    if (doImport) {
+    // Always import if force or snapshot
+    if (existing.isEmpty || forceImport || revision.endsWith("SNAPSHOT")) {
       Ivy.ivyImport(this)(org, name, revision, ivy, useScalaConvert, forceImport) match {
         case Right(_) =>
           Right(Set.empty[SearchResult])
@@ -276,10 +244,13 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
   }
 
   val defaultExecutionContext = {
-    scala.concurrent.ExecutionContext.global //TODO: we should probably have multiple different execution contexts for IO/disk/CPU bound operations
+    //TODO: we should probably have multiple different execution contexts for IO/disk/CPU bound operations
+    scala.concurrent.ExecutionContext.global
   }
 
-  def search(partialId: String, constraints: Set[Constraint] = Set.empty, onlineTimeout: FiniteDuration = defaultTimeout, allowLocalOnly: Boolean = false, alwaysIncludeImports: Boolean = false): Set[SearchResult] = {
+  def search(partialId: String, constraints: Set[Constraint] = Set.empty, onlineTimeout: FiniteDuration =
+  defaultTimeout, allowLocalOnly: Boolean = false, alwaysIncludeImports: Boolean = false):
+  Set[SearchResult] = {
     val onlineResults = {
       val onlineFuture = Search.onlineSearch(url)(partialId, constraints, defaultExecutionContext)
       if (allowLocalOnly) {
@@ -297,15 +268,20 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
     }
     val offlineResults = localSearch(partialId, constraints)
     val importResults = Search.searchImports(this)(partialId, constraints)
-    Search.mergeSearchResults(imports = importResults, offline = offlineResults, online = Await.result(onlineResults, onlineTimeout), alwaysIncludeImports)
+    Search.mergeSearchResults(imports = importResults, offline = offlineResults, online = Await.result(
+      onlineResults, onlineTimeout), alwaysIncludeImports)
   }
 
-  def resolve(requirements: Set[Requirement], inputContext: Set[ContextValue], overrides: Set[ContextValue] = Set.empty, providedVariants: Set[Variant] = Set.empty): Either[ResolveResult, (ResolveResult, Lockfile)] = {
+  def resolve(requirements: Set[Requirement], inputContext: Set[ContextValue], overrides: Set[ContextValue] =
+  Set.empty, providedVariants: Set[Variant] = Set.empty): Either[ResolveResult, (ResolveResult, Lockfile)] = {
     val overriddenInputContext = GitLoader.applyOverrides(inputContext, overrides)
     val context = GitLoader.computeTransitiveContext(baseDir, overriddenInputContext, Some(importsDir))
-    val overriddenContext = GitLoader.applyOverrides(context, overrides) //apply overrides again in case something transitive needs to be overridden
-    val transitiveLocations = GitLoader.computeTransitiveLocations(baseDir, overriddenInputContext, overriddenContext, Some(importsDir))
-    val commitsByRepo = overriddenContext.groupBy(_.repository).map { case (repo, values) => repo -> values.map(_.commit) }
+    //apply overrides again in case something transitive needs to be overridden
+    val overriddenContext = GitLoader.applyOverrides(context, overrides)
+    val transitiveLocations = GitLoader.computeTransitiveLocations(baseDir, overriddenInputContext,
+      overriddenContext, Some(importsDir))
+    val commitsByRepo = overriddenContext.groupBy(_.repository).map { case (repo, values) => repo ->
+      values.map(_.commit)}
     val required = transitiveLocations.flatMap { locations =>
       val mustGet = commitsByRepo(locations.name).exists { commit =>
         val repository = new GitRepository(baseDir, locations.name)
@@ -320,7 +296,8 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
         if (locations.uris.nonEmpty) {
           Some(locations.name -> locations.uris)
         } else {
-          throw new Exception("Cannot not clone/pull: " + locations.name + " because there are no locations to download from")
+          throw new Exception("Cannot not clone/pull: " + locations.name +
+            " because there are no locations to download from")
         }
       } else None
     }
@@ -334,21 +311,23 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
       progress.endTask()
     }
 
-    val mergedRequirements = requirements //easier now and for ever after if requirements are merged into one id, with a set of constraints
+    //easier now and for ever after if requirements are merged into one id, with a set of constraints
+    val mergedRequirements = requirements
       .groupBy(_.id)
       .map {
-        case (id, reqs) =>
-          val constraints = reqs
-            .flatMap(_.constraints)
-            .groupBy(_.name)
-            .map {
-              case (name, constraints) =>
-                Constraint(name, values = constraints.flatMap(_.values))
-            }
-          Requirement(id, constraints.toSet, reqs.flatMap(_.exclusions))
-      }.toSet
+      case (id, reqs) =>
+        val constraints = reqs
+          .flatMap(_.constraints)
+          .groupBy(_.name)
+          .map {
+          case (name, constraints) =>
+            Constraint(name, values = constraints.flatMap(_.values))
+        }
+        Requirement(id, constraints.toSet, reqs.flatMap(_.exclusions))
+    }.toSet
 
-    val result = localResolve(mergedRequirements, inputContext, overriddenInputContext, overriddenContext = overriddenContext, providedVariants, overrides, Set(importsDir)).right.map {
+    val result = localResolve(mergedRequirements, inputContext, overriddenInputContext, overriddenContext =
+      overriddenContext, providedVariants, overrides, Set(importsDir)).right.map {
       case resolveResult =>
         logger.debug(resolveResult.toString)
         val artifactMap = resolveResult.getResolvedVariants.flatMap {
@@ -363,22 +342,30 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
               val metadata = contextValue.commit match {
                 case Some(commit) =>
                   val repository = new GitRepository(baseDir, contextValue.repository)
-                  ArtifactMetadata.read(artifactHash, repository, commit).getOrElse(throw new Exception("Could not read artifact metadata for: " + artifactHash + ": " + contextValue))
+                  ArtifactMetadata.read(artifactHash, repository, commit).getOrElse(throw new Exception(
+                    "Could not read artifact metadata for: " + artifactHash + ": " + contextValue))
                 case None =>
                   val repository = new Repository(importsDir, contextValue.repository)
-                  ArtifactMetadata.read(artifactHash, repository).getOrElse(throw new Exception("Could not read artifact metadata for: " + artifactHash + ": " + contextValue))
+                  ArtifactMetadata.read(artifactHash, repository).getOrElse(throw new Exception(
+                    "Could not read artifact metadata for: " + artifactHash + ": " + contextValue))
               }
               val fallbackFilename = contextValue.variant.value
-              LockfileConverters.newArtifact(artifact.hash, metadata.size.toInt, metadata.locations, artifact.attributes, artifact.filename.getOrElse(fallbackFilename))
+              LockfileConverters.newArtifact(artifact.hash, metadata.size.toInt, metadata.locations,
+                artifact.attributes, artifact.filename.getOrElse(fallbackFilename))
             }
         }.toSet
         val lockfileContext = inputContext.flatMap { c =>
           resolveResult.getResolvedVariants.get(c.id).flatMap { variant =>
-            if (c.id != variant.id) throw new Exception("Input context has a different ids than resolved results. Resolved: " + variant.id.value + ", context: " + c.id.value + ". Context: " + c)
+            if (c.id != variant.id) throw new Exception(
+              "Input context has a different ids than resolved results. Resolved: " + variant.id.value +
+                ", context: " + c.id.value + ". Context: " + c)
             val resolvedHash = VariantMetadata.fromVariant(variant).hash
-            if (c.variant != resolvedHash) throw new Exception("Input context has a different hash than resolved results. Resolved: " + resolvedHash.value + ", context: " + c.variant.value + ". Context: " + c)
+            if (c.variant != resolvedHash) throw new Exception(
+              "Input context has a different hash than resolved results. Resolved: " + resolvedHash.value +
+                ", context: " + c.variant.value + ". Context: " + c)
             val locations = transitiveLocations.filter(_.name == c.repository).flatMap(_.uris)
-            Some(LockfileConverters.newContext(variant.toString, variant.id, c.repository, locations, c.commit, c.variant))
+            Some(LockfileConverters.newContext(variant.toString, variant.id, c.repository, locations,
+              c.commit, c.variant))
           }
         }
         val lockfileRequirements = mergedRequirements.map { r =>
@@ -392,5 +379,4 @@ class AdeptHub(val baseDir: File, val importsDir: File, val cacheManager: CacheM
   def contribute() = {
     Contribute.contribute(url, baseDir, passphrase, progress, importsDir)
   }
-
 }

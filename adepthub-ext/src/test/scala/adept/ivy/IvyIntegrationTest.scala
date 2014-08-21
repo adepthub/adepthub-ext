@@ -1,25 +1,17 @@
 package adept.ivy
 
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
-import adept.test.TestDetails
 import java.io.File
-import org.apache.ivy.core.module.descriptor.DefaultModuleDescriptor
-import org.apache.ivy.core.module.descriptor.DefaultDependencyDescriptor
-import org.apache.ivy.core.module.id.ModuleRevisionId
-import org.apache.ivy.core.module.descriptor.DefaultExcludeRule
-import org.apache.ivy.core.module.descriptor.{ Configuration => IvyConfiguration }
-import org.apache.ivy.core.module.id.ArtifactId
-import org.apache.ivy.core.module.id.ModuleId
-import org.apache.ivy.plugins.matcher.ExactPatternMatcher
+
 import adept.ext.VersionRank
-import adept.resolution.models.Id
-import adept.repository.models.RepositoryName
 import adept.repository.GitRepository
+import adept.repository.models.RepositoryName
+import adept.resolution.models.Id
+import adept.test.TestDetails
 import org.apache.ivy.Ivy
-import adept.resolution.models.Variant
-import adept.resolution.models.Attribute
-import adept.resolution.models.Requirement
+import org.apache.ivy.core.module.descriptor.{DefaultDependencyDescriptor, DefaultExcludeRule, DefaultModuleDescriptor, Configuration => IvyConfiguration}
+import org.apache.ivy.core.module.id.{ArtifactId, ModuleId, ModuleRevisionId}
+import org.apache.ivy.plugins.matcher.ExactPatternMatcher
+import org.scalatest.{FunSuite, Matchers}
 
 class IvyIntegrationTest extends FunSuite with Matchers {
   import adept.test.FileUtils._
@@ -30,27 +22,36 @@ class IvyIntegrationTest extends FunSuite with Matchers {
   val force = true
 
   def getDefaultAdeptModule = {
-    val ivyModule = DefaultModuleDescriptor.newBasicInstance(ModuleRevisionId.newInstance("com.adepthub", "test", "1.0"), new java.util.Date(1395315115209L))
-    ivyModule.addConfiguration(new IvyConfiguration("default", IvyConfiguration.Visibility.PUBLIC, "", Array("master", "runtime"), true, ""))
-    ivyModule.addConfiguration(new IvyConfiguration("master", IvyConfiguration.Visibility.PUBLIC, "", Array.empty, true, ""))
-    ivyModule.addConfiguration(new IvyConfiguration("runtime", IvyConfiguration.Visibility.PUBLIC, "", Array("compile"), true, ""))
-    ivyModule.addConfiguration(new IvyConfiguration("compile", IvyConfiguration.Visibility.PUBLIC, "", Array.empty, true, ""))
-    ivyModule.addConfiguration(new IvyConfiguration("test", IvyConfiguration.Visibility.PRIVATE, "", Array("runtime"), true, ""))
+    val ivyModule = DefaultModuleDescriptor.newBasicInstance(ModuleRevisionId.newInstance(
+      "com.adepthub", "test", "1.0"), new java.util.Date(1395315115209L))
+    ivyModule.addConfiguration(new IvyConfiguration("default", IvyConfiguration.Visibility.PUBLIC, "",
+      Array("master", "runtime"), true, ""))
+    ivyModule.addConfiguration(new IvyConfiguration("master", IvyConfiguration.Visibility.PUBLIC, "",
+      Array.empty, true, ""))
+    ivyModule.addConfiguration(new IvyConfiguration("runtime", IvyConfiguration.Visibility.PUBLIC, "",
+      Array("compile"), true, ""))
+    ivyModule.addConfiguration(new IvyConfiguration("compile", IvyConfiguration.Visibility.PUBLIC, "",
+      Array.empty, true, ""))
+    ivyModule.addConfiguration(new IvyConfiguration("test", IvyConfiguration.Visibility.PRIVATE, "",
+      Array("runtime"), true, ""))
     ivyModule
   }
 
-  def installScalaWithBinaryVersions(baseDir: File, ivy: Ivy, versions: Set[String], changing: Boolean)(implicit testDetails: TestDetails) = {
+  def installScalaWithBinaryVersions(baseDir: File, ivy: Ivy, versions: Set[String], changing: Boolean)(
+    implicit testDetails: TestDetails) = {
     val ivyModule = getDefaultAdeptModule
 
     versions.foreach { scalaVersion =>
       val scalaLibDep = new DefaultDependencyDescriptor(ivyModule,
-        ModuleRevisionId.newInstance("org.scala-lang", "scala-compiler", scalaVersion), force, changing, transitive)
+        ModuleRevisionId.newInstance("org.scala-lang", "scala-compiler", scalaVersion), force,
+        changing, transitive)
       scalaLibDep.addDependencyConfiguration("compile", "default(compile)")
       ivyModule.addDependency(scalaLibDep)
       IvyTestUtils.verify(baseDir, ivy, ivyModule, changing = changing)
     }
 
-    val scalaIds = Set("", "/config/compile", "/config/default", "/config/javadoc", "/config/master", "/config/provided", "/config/runtime", "/config/sources", "/config/system").map { confString =>
+    val scalaIds = Set("", "/config/compile", "/config/default", "/config/javadoc", "/config/master",
+      "/config/provided", "/config/runtime", "/config/sources", "/config/system").map { confString =>
       Id("org.scala-lang/scala-library" + confString)
     }
     val scalaRepoName = RepositoryName("org.scala-lang")
@@ -58,7 +59,9 @@ class IvyIntegrationTest extends FunSuite with Matchers {
     val scalaCommit = scalaRepo.getHead
     var (addFiles, rmFiles) = Set.empty[File] -> Set.empty[File]
     scalaIds.foreach { scalaId =>
-      val (currentAddFiles, currentRmFiles) = VersionRank.useSemanticVersionRanking(scalaId, scalaRepo, scalaCommit, includes = Set("2\\.11.\\d+".r, "2\\.10.*".r, "2\\.9.*".r), excludes = Set(".*".r), useVersionAsBinary = Set("2\\.8.*".r, "2\\.7.*".r, "2\\.6.*".r, "2\\.5.*".r, "2\\.4.*".r, "2\\.3.*".r))
+      val (currentAddFiles, currentRmFiles) = VersionRank.useSemanticVersionRanking(scalaId, scalaRepo,
+        scalaCommit, includes = Set("2\\.11.\\d+".r, "2\\.10.*".r, "2\\.9.*".r), excludes = Set(".*".r),
+        useVersionAsBinary = Set("2\\.8.*".r, "2\\.7.*".r, "2\\.6.*".r, "2\\.5.*".r, "2\\.4.*".r, "2\\.3.*".r))
       addFiles ++= currentAddFiles
       rmFiles ++= currentRmFiles
     }
@@ -75,8 +78,11 @@ class IvyIntegrationTest extends FunSuite with Matchers {
 
       val ivyModule = getDefaultAdeptModule
       val akkaDep = new DefaultDependencyDescriptor(ivyModule,
-        ModuleRevisionId.newInstance("com.typesafe.akka", "akka-remote_2.10", "2.2.1"), force, changing, transitive)
-      akkaDep.addExcludeRule("compile", new DefaultExcludeRule(new ArtifactId(new ModuleId("com.google.protobuf", "protobuf-java"), "*", "*", "*"), ExactPatternMatcher.INSTANCE, new java.util.HashMap()))
+        ModuleRevisionId.newInstance("com.typesafe.akka", "akka-remote_2.10", "2.2.1"), force,
+        changing, transitive)
+      akkaDep.addExcludeRule("compile", new DefaultExcludeRule(new ArtifactId(
+        new ModuleId("com.google.protobuf", "protobuf-java"), "*", "*", "*"), ExactPatternMatcher.INSTANCE,
+        new java.util.HashMap()))
       akkaDep.addDependencyConfiguration("compile", "default(compile)")
       ivyModule.addDependency(akkaDep)
       val scalaTestDep = new DefaultDependencyDescriptor(ivyModule,
@@ -106,7 +112,7 @@ class IvyIntegrationTest extends FunSuite with Matchers {
     }
   }
 
-  test("Ivy end-to-end: adepts own (many different)") {
+  test("Ivy end-to-end: adept's own (many different)") {
     pending
   }
 
@@ -121,12 +127,16 @@ class IvyIntegrationTest extends FunSuite with Matchers {
         val ivyModule = getDefaultAdeptModule
 
         val akkaDep = new DefaultDependencyDescriptor(ivyModule,
-          ModuleRevisionId.newInstance("com.typesafe.akka", "akka-remote_2.10", "2.2.1"), force, changing, transitive)
-        akkaDep.addExcludeRule("compile", new DefaultExcludeRule(new ArtifactId(new ModuleId("com.google.protobuf", "protobuf-java"), "*", "*", "*"), ExactPatternMatcher.INSTANCE, new java.util.HashMap()))
+          ModuleRevisionId.newInstance("com.typesafe.akka", "akka-remote_2.10", "2.2.1"),
+          force, changing, transitive)
+        akkaDep.addExcludeRule("compile", new DefaultExcludeRule(new ArtifactId(new ModuleId(
+          "com.google.protobuf", "protobuf-java"), "*", "*", "*"), ExactPatternMatcher.INSTANCE,
+          new java.util.HashMap()))
         akkaDep.addDependencyConfiguration("compile", "default(compile)")
         ivyModule.addDependency(akkaDep)
         val scalaTestDep = new DefaultDependencyDescriptor(ivyModule,
-          ModuleRevisionId.newInstance("org.scalatest", "scalatest_2.10", "1.9.1"), force, changing, transitive)
+          ModuleRevisionId.newInstance("org.scalatest", "scalatest_2.10", "1.9.1"), force, changing,
+          transitive)
         scalaTestDep.addDependencyConfiguration("test", "default(compile)")
         ivyModule.addDependency(scalaTestDep)
 

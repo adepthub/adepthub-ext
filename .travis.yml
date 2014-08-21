@@ -1,0 +1,12 @@
+language: scala
+scala:
+    - "2.10.3"
+jdk:
+    - openjdk7
+    - openjdk6
+git:
+    submodules: false
+# Use sed to replace the SSH URL with the public URL, then update submodules
+before_install:
+    - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
+    - git submodule update --init --recursive
