@@ -8,11 +8,11 @@ import adept.services.JsonService
 
 case class ContributionResult(repository: RepositoryName, commit: Commit, locations: Seq[String])
   extends JsonSerializable {
-  override def writeJson(generator: JsonGenerator): Unit = JsonService.writeJson({ generator: JsonGenerator =>
+  override def writeJson(generator: JsonGenerator): Unit = {
     generator.writeStringField("repository", repository.value)
     generator.writeStringField("commit", commit.value)
     JsonService.writeStringArrayField("locations", locations, generator)
-  })
+  }
 }
 
 object ContributionResult {

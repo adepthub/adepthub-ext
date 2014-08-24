@@ -1,21 +1,15 @@
 package adept.ui
 
+import java.io.File
+
+import adept.repository.GitRepository
+import adept.repository.metadata.{RankingMetadata, VariantMetadata}
+import adept.repository.models.{Commit, RepositoryName}
 import akka.actor.Actor
 import akka.util.Timeout
 import spray.can.Http
-import spray.http.HttpRequest
 import spray.http.HttpMethods.GET
-import spray.http.Uri
-import spray.http.HttpResponse
-import adept.resolution.models.Id
-import java.io.File
-import scala.util.matching.Regex
-import adept.repository.models.RepositoryName
-import adept.repository.GitRepository
-import adept.repository.metadata.VariantMetadata
-import adept.repository.metadata.RankingMetadata
-import adept.resolution.models.Attribute
-import adept.repository.models.Commit
+import spray.http.{HttpRequest, HttpResponse, Uri}
 
 object AdeptUIService {
   val ConfigurationHash = "configuration-hash"
@@ -28,7 +22,8 @@ object AdeptUIService {
   def configuredRepo(repository: RepositoryName) = configuredRepoBaseURI + "/" + repository.value
 
   val configuredVariantsBaseURI = "variants"
-  val ConfiguredVariantsBaseURIRegEx = (ConfiguredRepoBaseURIRegEx.pattern + "/" + configuredVariantsBaseURI + "/" + """(.*)""").r
+  val ConfiguredVariantsBaseURIRegEx = (ConfiguredRepoBaseURIRegEx.pattern + "/" +
+    configuredVariantsBaseURI + "/" + """(.*)""").r
   def configuredVariants(repository: RepositoryName, base: String) = {
     configuredRepoBaseURI + "/" + repository.value + "/" + configuredVariantsBaseURI + "/" + base
   }
@@ -38,15 +33,12 @@ object AdeptUIService {
   def applySemVer(repository: RepositoryName, commit: Commit) = {
     applySemVerURI + "/" + repository.value + "/" + commit.value
   }
-
 }
 
 class AdeptUIService extends Actor {
-  import AdeptUIService._
+  import adept.ui.AdeptUIService._
   import scala.concurrent.duration._
   implicit val timeout: Timeout = 1.second
-
-  import context.dispatcher
 
   val baseDir = new File(System.getProperty("user.home"), ".adept") //TODO: configurable
 
@@ -56,7 +48,7 @@ class AdeptUIService extends Actor {
     case HttpRequest(GET, Uri.Path("/"), _, _, _) | HttpRequest(GET, Uri.Path(""), _, _, _) =>
       val repoDir = new File(baseDir, "repos")
       val repositories = repoDir.listFiles.flatMap { f =>
-        if (f.isDirectory()) Some(RepositoryName(f.getName))
+        if (f.isDirectory) Some(RepositoryName(f.getName))
         else None
       }.toSet
       sender ! views.repositories(repositories)
@@ -65,7 +57,8 @@ class AdeptUIService extends Actor {
         case ApplySemVerURIURIRegEx(repositoryString, commitString) =>
           
       }
-    case HttpRequest(GET, Uri.Path(path), _, _, _) if ConfiguredVariantsBaseURIRegEx.findAllMatchIn(path).nonEmpty =>
+    case HttpRequest(GET, Uri.Path(path), _, _, _) if ConfiguredVariantsBaseURIRegEx.
+      findAllMatchIn(path).nonEmpty =>
       path match {
         case ConfiguredVariantsBaseURIRegEx(repoString, base) =>
           val repository = new GitRepository(baseDir, RepositoryName(repoString))
@@ -75,11 +68,13 @@ class AdeptUIService extends Actor {
             .flatMap { id =>
               RankingMetadata.listRankIds(id, repository, commit).map { rankId =>
                 rankId -> {
-                  val ranking = RankingMetadata.read(id, rankId, repository, commit).getOrElse(throw new Exception("FATAL! Could not read ranking: " + (id, rankId, repository, commit)))
+                  val ranking = RankingMetadata.read(id, rankId, repository, commit).getOrElse(
+                    throw new Exception("FATAL! Could not read ranking: " + (id, rankId, repository, commit)))
                   ranking.variants.map { hash =>
                     VariantMetadata
                       .read(id, hash, repository, commit, checkHash = true)
-                      .getOrElse(throw new Exception("FATAL! Could not read variant: " + (id, hash, repository, commit)))
+                      .getOrElse(throw new Exception("FATAL! Could not read variant: " +
+                      (id, hash, repository, commit)))
                       .toVariant(id)
                   }
                 }
@@ -100,10 +95,12 @@ class AdeptUIService extends Actor {
               }.toMap
               rankId -> variantsByConfig
           }
-          val sortedRankedVariantsByConfig = rankedVariantsByConfig.toSeq.sortBy { case (rankId, _) => rankId.value }
+          val sortedRankedVariantsByConfig = rankedVariantsByConfig.toSeq.sortBy { case (rankId, _) =>
+            rankId.value }
           sender ! views.variants(repository.name, commit, sortedRankedVariantsByConfig)
       }
-    case HttpRequest(GET, Uri.Path(path), _, _, _) if ConfiguredRepoBaseURIRegEx.findAllMatchIn(path).nonEmpty =>
+    case HttpRequest(GET, Uri.Path(path), _, _, _) if ConfiguredRepoBaseURIRegEx.findAllMatchIn(
+      path).nonEmpty =>
       println(ConfiguredRepoBaseURIRegEx.pattern)
       path match {
         case ConfiguredRepoBaseURIRegEx(repoString) =>
@@ -130,5 +127,4 @@ class AdeptUIService extends Actor {
       sender ! Http.Close
       context.system.shutdown()
   }
-
 }

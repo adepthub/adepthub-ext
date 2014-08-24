@@ -12,6 +12,7 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
 import adept.models.{SearchResult, GitSearchResult, ImportSearchResult}
 import adept.services.JsonService
+import scala.io.Source
 
 class AdeptHubRecoverableException(msg: String) extends Exception(msg)
 
@@ -53,13 +54,12 @@ private[adept] object Search {
         try {
           val status = response.getStatusLine
           if (status.getStatusCode == 200) {
-            val (gitSearchResults, _) = JsonService.parseJson(response.getEntity.getContent, Map(
-              ("results", JsonService.parseSet(_, GitSearchResult.fromJson))
-            ), valueMap => valueMap.getSet[GitSearchResult]("results"))
-            gitSearchResults.map(_.copy(isLocal = false))
+            val (gitSearchResults, _) = JsonService.parseJsonSet(response.getEntity.getContent,
+              GitSearchResult.fromJson)
+            gitSearchResults
           } else {
             throw new AdeptHubRecoverableException("AdeptHub returned with: " + status + ":\n" +
-              io.Source.fromInputStream(response.getEntity.getContent).getLines().mkString("\n"))
+              Source.fromInputStream(response.getEntity.getContent).getLines().mkString("\n"))
           }
         } finally {
           response.close()

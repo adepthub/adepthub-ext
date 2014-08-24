@@ -1,10 +1,10 @@
 package adept
 
+import java.io.File
+
+import adept.logging.Logging
 import adept.repository.GitRepository
 import adept.repository.models._
-import adept.logging.Logging
-import org.eclipse.jgit.lib.ProgressMonitor
-import java.io.File
 
 private[adept] object Get extends Logging { //fix logging!
   def get(baseDir: File, passphrase: Option[String])(name: RepositoryName, locations: Set[String]) = {

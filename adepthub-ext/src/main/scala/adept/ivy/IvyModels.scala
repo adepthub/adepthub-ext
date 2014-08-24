@@ -1,12 +1,10 @@
 package adept.ivy
 
-import adept.resolution.models._
-import adept.artifact.models._
 import java.io.File
+
+import adept.artifact.models._
+import adept.resolution.models._
 import org.apache.ivy.core.module.id.ModuleRevisionId
-import adept.repository.models._
-import adept.ext.Version
-import org.apache.ivy.core.module.descriptor.ExcludeRule
 
 //Exceptions (thrown by Adept's Ivy import):
 class IvyImportError(msg: String) extends Exception(msg)
@@ -14,9 +12,14 @@ case class AdeptIvyResolveException(msg: String) extends Exception(msg)
 case class AdeptIvyException(msg: String) extends Exception(msg)
 
 //Errors (returned in Either objects so caller can recover from them):
-case class ArtifactLocationError(location: String, file: File) extends IvyImportError("Could not determine artifact location: " + location + " for file: '" + file.getAbsolutePath + "'. Deleting the file might help.")
-case class IvyVerificationError(mismatchOnHash: ArtifactHash, variant: Variant, matchingHashes: Set[ArtifactHash])
-case class IvyVerificationErrorReport(msg: String, adeptExtraArtifacts: Map[ArtifactHash, Variant], ivyExtraArtifacts: Map[ArtifactHash, ModuleRevisionId], nonMatching: Set[IvyVerificationError]) {
+case class ArtifactLocationError(location: String, file: File) extends IvyImportError(
+  "Could not determine artifact location: " + location + " for file: '" + file.getAbsolutePath +
+    "'. Deleting the file might help.")
+case class IvyVerificationError(mismatchOnHash: ArtifactHash, variant: Variant, matchingHashes:
+Set[ArtifactHash])
+case class IvyVerificationErrorReport(msg: String, adeptExtraArtifacts: Map[ArtifactHash, Variant],
+                                      ivyExtraArtifacts: Map[ArtifactHash, ModuleRevisionId],
+                                      nonMatching: Set[IvyVerificationError]) {
   override def toString = {
     msg + ".\n" +
       (if (adeptExtraArtifacts.nonEmpty) {

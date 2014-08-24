@@ -1,9 +1,14 @@
 package adept.sbt.commands
 
-import net.sf.ehcache.CacheManager
-import org.eclipse.jgit.lib.ProgressMonitor
+import logging.SbtLogger
 import sbt.State
 
 abstract class AdeptCommand {
-  def execute(state: State): State
+  def execute(state: State): State = {
+    SbtLogger.withLogger(state.globalLogging.full) {
+      realExecute(state)
+    }
+  }
+
+  protected def realExecute(state: State): State
 }

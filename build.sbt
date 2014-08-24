@@ -29,7 +29,8 @@ lazy val adepthubExt = project.in(file("adepthub-ext")).settings(
     "org.apache.httpcomponents" % "httpclient" % "4.3.3",
     "org.apache.httpcomponents" % "httpmime" % "4.3.3",
     "org.apache.commons" % "commons-io" % "1.3.2",
-    //TODO: typesafe ivy release is down :( renable "org.scala-sbt.ivy"  % "ivy" % "2.4.0-sbt-d6fca11d63402c92e4167cdf2da91a660d043392",
+    // TODO: typesafe ivy release is down :( reenable
+    // "org.scala-sbt.ivy"  % "ivy" % "2.4.0-sbt-d6fca11d63402c92e4167cdf2da91a660d043392",
     "org.scalatest" %% "scalatest" % "2.0" % "test",
     "org.scala-lang.modules" %% "scala-xml" % "1.0.2"
   )
@@ -60,6 +61,6 @@ lazy val adepthubSbt = project.in(file("adepthub-sbt")).settings(
   scalacOptions += "-target:jvm-"+jvmTarget,
   sbtPlugin := true,
   libraryDependencies ++= Seq(
-    "org.slf4j" % "slf4j-nop" % "1.6.1"
+    "org.slf4j" % "slf4j-api" % "1.7.7"
   )
 ).dependsOn(adepthubExt)

@@ -12,7 +12,8 @@ private object APIExample extends App { //TODO: move to other project
   import java.io.File
 
   val cacheManager = net.sf.ehcache.CacheManager.create() //cachemanager can be kept in memory to speed up later resolutions
-  val adepthub = new AdeptHub(baseDir = Defaults.baseDir, importsDir = new File("adept-imports"), cacheManager = cacheManager)
+  val adepthub = new AdeptHub(baseDir = Defaults.baseDir, importsDir = new File("adept-imports"),
+      cacheManager = cacheManager)
 
   //generic search (no constraints)
   {
@@ -48,7 +49,9 @@ private object APIExample extends App { //TODO: move to other project
       val allSearchResults = adepthub.search( //<-- search for all matching term
         term,
         constraints,
-        allowLocalOnly = true) //<-- change to false to force online searches - when it is true, Adept will be able to resolve if metadata is local
+        // change to false to force online searches - when it is true, Adept will be able to resolve if
+        // metadata is local
+        allowLocalOnly = true)
       AdeptHub
         .highestVersionedSearchResults(allSearchResults) //<-- get highest
         .toSeq //we loose type-info on toSet :(
@@ -59,8 +62,10 @@ private object APIExample extends App { //TODO: move to other project
     }
 
     val uniqueModule = AdeptHub
-      .getUniqueModule(term, highestSearchResultsOnly) //<-- get the UNIQUE module matching this term/constraints...
-      .fold(errorMsg => Failure(new Exception(errorMsg)), res => Success(res)) //<-- convert to Try to use for-expr later (not required/can be implented differently)
+      // get the UNIQUE module matching this term/constraints...
+      .getUniqueModule(term, highestSearchResultsOnly)
+      // convert to Try to use for-expr later (not required/can be implented differently)
+      .fold(errorMsg => Failure(new Exception(errorMsg)), res => Success(res))
     val lockfile = Lockfile.read(lockfileFile)
 
     def resolve(baseIdString: String, variants: Set[Variant]) = {
@@ -69,8 +74,10 @@ private object APIExample extends App { //TODO: move to other project
       //2) Compute all requirements including those in from the lockfile
       val requirements = AdeptHub.newLockfileRequirements(newRequirements, lockfile)
       //3) Compute context based on search results
-      val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(highestSearchResultsOnly), lockfile)
-      //4) Generate overrides to make sure nothing transitively overrides our context (OPTIONAL: can be skipped) 
+      val inputContext = AdeptHub.newLockfileContext(AdeptHub.searchResultsToContext(
+        highestSearchResultsOnly), lockfile)
+      // 4) Generate overrides to make sure nothing transitively overrides our context (OPTIONAL: can be
+      // skipped)
       val overrides = inputContext
 
       //5) Make sure chosen search results are local/download if not
@@ -80,7 +87,8 @@ private object APIExample extends App { //TODO: move to other project
       adepthub.downloadLockfileLocations(newRequirements, lockfile)
 
       //7) Create Java system variants (required by all Java)  
-      val (majorJavaVersion, minorJavaVersion) = JavaVersions.getMajorMinorVersion(this.getClass, this.getClass().getClassLoader())
+      val (majorJavaVersion, minorJavaVersion) = JavaVersions.getMajorMinorVersion(
+        this.getClass, this.getClass.getClassLoader)
       val javaVariants = JavaVersions.getVariants(majorJavaVersion, minorJavaVersion)
 
       //8) Resolve
@@ -89,7 +97,8 @@ private object APIExample extends App { //TODO: move to other project
         inputContext = inputContext,
         overrides = overrides,
         providedVariants = javaVariants)
-        .fold( //<-- convert to Try to use for-expr later (not required/can be implented differently)
+        // convert to Try to use for-expr later (not required/can be implented differently)
+        .fold(
           error => Failure(new Exception(error.toString)),
           {
             case (result, newLockfile) =>
@@ -106,13 +115,15 @@ private object APIExample extends App { //TODO: move to other project
     //Print failures (if any)
     result.failed.foreach { ex =>
       println("FAILED!") //<-- should not happen (hopefully)!
-      println(ex.getMessage())
+      println(ex.getMessage)
     }
 
     //Print result (if any):
     result.foreach {
       case (result, newLockfile) =>
-        println(result) //prints an internal representation of the state with (large) graph - not something the user wants to see (see https://github.com/adepthub/adepthub-ext/issues/13) 
+        // prints an internal representation of the state with (large) graph - not something the user wants
+        // to see (see https://github.com/adepthub/adepthub-ext/issues/13)
+        println(result)
         adepthub.writeLockfile(lockfile, lockfileFile) //update lockfile
         println("Wrote: " + lockfileFile)
     }
@@ -133,5 +144,4 @@ private object APIExample extends App { //TODO: move to other project
   }
 
   cacheManager.shutdown() //must shutdown to join cachemanager threads
-
 }

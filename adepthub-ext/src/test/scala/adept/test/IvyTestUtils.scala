@@ -62,7 +62,7 @@ object IvyTestUtils {
       if (errors.nonEmpty) println(errors.mkString("\n")) //print to see errors on failure
       errors should have size (0)
       val loader = benchmark(Loaded, resolutionResults) {
-        new GitLoader(tmpDir, resolutionResults, cacheManager = cacheManager, progress = progress)
+        new GitLoader(tmpDir, resolutionResults, cacheManager = cacheManager)
       }
       val result = benchmark(Resolved, requirements(confName) && loader) {
         resolve(requirements(confName), loader)
@@ -72,7 +72,8 @@ object IvyTestUtils {
           val verificationResult = benchmark(Verified, resolvedResult && ivyModule) {
             ivyConverter.verifyConversion(confName, ivyModule, resolvedResult)
           }
-          assert(verificationResult.isRight, "Verification of " + confName + " failed:\n" + verificationResult)
+          assert(verificationResult.isRight, "Verification of " + confName + " failed:\n" +
+            verificationResult)
         case _ =>
           assert(false, "Expected to be able to resolve Adept for " + confName + ". Got result:\n" + result)
       }
