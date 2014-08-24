@@ -1,4 +1,7 @@
 # AdeptHub Extensions
+Extensions to [Adept](https://github.com/adept-dm/adept).
+
+[![Build Status](https://travis-ci.org/adepthub/adepthub-ext.png?branch=master)](https://travis-ci.org/adepthub/adepthub-ext)
 
 ## Intro
 This project extends Adept by providing the possibility to search, install and publish on adepthub.com.
